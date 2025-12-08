@@ -1,0 +1,3 @@
+name = "onebyonepics-backend"
+
+tsconfig = "tsconfig.json"
