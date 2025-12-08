@@ -54,7 +54,7 @@ export class GenerationService {
     }
 
     const job = this.jobsRepository.create({
-      user: user || null,
+      user: user ? ({ id: (user as any).id } as User) : null,
       sessionId,
       uploadedImage: image,
       gridConfigId,
