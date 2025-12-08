@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository, IsNull } from 'typeorm';
+import { SignOptions } from 'jsonwebtoken';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -27,11 +28,18 @@ export class AuthService {
   ) {}
 
   private async generateTokens(user: User) {
+    const accessExpiresIn: SignOptions['expiresIn'] =
+      (this.configService.get<string>('jwt.accessExpiresIn') as SignOptions['expiresIn']) ||
+      '15m';
+    const refreshExpiresIn: SignOptions['expiresIn'] =
+      (this.configService.get<string>('jwt.refreshExpiresIn') as SignOptions['expiresIn']) ||
+      '7d';
+
     const accessToken = await this.jwtService.signAsync(
       { sub: user.id, email: user.email },
       {
         secret: this.configService.get<string>('jwt.accessSecret'),
-        expiresIn: this.configService.get<string>('jwt.accessExpiresIn') || '15m',
+        expiresIn: accessExpiresIn,
       },
     );
 
@@ -39,8 +47,7 @@ export class AuthService {
       { sub: user.id, email: user.email, type: 'refresh' },
       {
         secret: this.configService.get<string>('jwt.refreshSecret'),
-        expiresIn:
-          this.configService.get<string>('jwt.refreshExpiresIn') || '7d',
+        expiresIn: refreshExpiresIn,
       },
     );
 
