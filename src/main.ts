@@ -23,14 +23,14 @@ async function bootstrap() {
   const port = configService.get<number>('app.port') || 3001;
   const corsOrigin = configService.get<string>('cors.origin') || '*';
 
-  await app.register(fastifyMultipart, {
+  await app.register(fastifyMultipart as any, {
     limits: {
       fileSize: 10 * 1024 * 1024, // 10 MB
       files: 1,
     },
   });
 
-  await app.register(fastifyCors, {
+  await app.register(fastifyCors as any, {
     origin:
       corsOrigin === '*'
         ? true
