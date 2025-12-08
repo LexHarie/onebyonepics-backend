@@ -48,8 +48,9 @@ export class ImagesService {
     const hours = this.configService.get<number>('cleanup.originalImagesHours') || 24;
     const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
+    const imageOwner = user ? ({ id: (user as any).id } as User) : null;
     const image = this.imagesRepository.create({
-      user: user || null,
+      user: imageOwner,
       sessionId,
       storageKey: key,
       storageUrl: url,
