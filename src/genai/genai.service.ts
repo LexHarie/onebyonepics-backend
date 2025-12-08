@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 
 const PROMPT = `Transform this photo into a professional ID/passport photo:
 
@@ -20,28 +20,28 @@ export type GeneratedImageResult = {
 @Injectable()
 export class GenAIService {
   private readonly logger = new Logger(GenAIService.name);
-  private readonly client: GoogleGenerativeAI;
+  private readonly client: GoogleGenAI;
   private readonly modelName: string;
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('google.apiKey');
     this.modelName =
       this.configService.get<string>('google.model') || 'gemini-2.0-flash-exp';
-    this.client = new GoogleGenerativeAI(apiKey as string);
+    this.client = new GoogleGenAI({ apiKey: apiKey as string });
   }
 
   async generateImages(
     imageBuffer: Buffer,
     variationCount: number,
   ): Promise<GeneratedImageResult[]> {
-    const model = this.client.getGenerativeModel({ model: this.modelName });
     const imageData = imageBuffer.toString('base64');
 
     const results: GeneratedImageResult[] = [];
 
     for (let i = 0; i < variationCount; i++) {
       try {
-        const response = await model.generateContent({
+        const response = await this.client.models.generateContent({
+          model: this.modelName,
           contents: [
             {
               role: 'user',
@@ -59,7 +59,9 @@ export class GenAIService {
         });
 
         const inlineData =
-          response.response?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+          response.candidates?.[0]?.content?.parts?.find(
+            (p: any) => p.inlineData,
+          )?.inlineData;
         if (!inlineData?.data) {
           throw new Error('No image data returned from model');
         }
