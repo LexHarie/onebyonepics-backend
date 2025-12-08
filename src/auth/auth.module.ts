@@ -19,10 +19,14 @@ import { OptionalAuthGuard } from './guards/optional-auth.guard';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.accessSecret'),
-        signOptions: { expiresIn: configService.get<string>('jwt.accessExpiresIn') },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const expiresIn =
+          (configService.get<string>('jwt.accessExpiresIn') as any) || '15m';
+        return {
+          secret: configService.get<string>('jwt.accessSecret') || 'please-set-secret',
+          signOptions: { expiresIn },
+        };
+      },
     }),
     TypeOrmModule.forFeature([RefreshToken]),
   ],
