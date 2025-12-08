@@ -33,6 +33,7 @@ export class GenerationJob {
   @ManyToOne(() => UploadedImage, (image) => image.generationJobs, {
     eager: true,
     nullable: true,
+    onDelete: 'SET NULL',
   })
   uploadedImage?: UploadedImage | null;
 
