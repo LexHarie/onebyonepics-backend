@@ -1,44 +1,31 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
-import type { RefreshToken } from '../../auth/entities/refresh-token.entity';
-import type { UploadedImage } from '../../images/entities/image.entity';
-import type { GenerationJob } from '../../generation/entities/generation-job.entity';
+export interface User {
+  id: string;
+  email: string;
+  passwordHash: string;
+  name?: string | null;
+  isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
-@Entity({ name: 'users' })
-export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+export interface UserRow {
+  id: string;
+  email: string;
+  password_hash: string;
+  name: string | null;
+  is_verified: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
 
-  @Column({ unique: true })
-  email!: string;
-
-  @Column({ name: 'password_hash' })
-  passwordHash!: string;
-
-  @Column({ nullable: true })
-  name?: string;
-
-  @Column({ name: 'is_verified', default: false })
-  isVerified!: boolean;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt!: Date;
-
-  @OneToMany('RefreshToken', 'user')
-  refreshTokens!: RefreshToken[];
-
-  @OneToMany('UploadedImage', 'user')
-  uploadedImages!: UploadedImage[];
-
-  @OneToMany('GenerationJob', 'user')
-  generationJobs!: GenerationJob[];
+export function rowToUser(row: UserRow): User {
+  return {
+    id: row.id,
+    email: row.email,
+    passwordHash: row.password_hash,
+    name: row.name,
+    isVerified: row.is_verified,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
