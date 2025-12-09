@@ -5,14 +5,14 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { GenerationJob } from './generation-job.entity';
+import type { GenerationJob } from './generation-job.entity';
 
 @Entity({ name: 'generated_images' })
 export class GeneratedImage {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => GenerationJob, (job) => job.generatedImages, {
+  @ManyToOne('GenerationJob', 'generatedImages', {
     onDelete: 'CASCADE',
   })
   generationJob!: GenerationJob;

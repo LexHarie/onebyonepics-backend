@@ -6,15 +6,15 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
-import { GenerationJob } from '../../generation/entities/generation-job.entity';
+import type { User } from '../../users/entities/user.entity';
+import type { GenerationJob } from '../../generation/entities/generation-job.entity';
 
 @Entity({ name: 'uploaded_images' })
 export class UploadedImage {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => User, (user) => user.uploadedImages, {
+  @ManyToOne('User', 'uploadedImages', {
     onDelete: 'SET NULL',
     nullable: true,
   })
@@ -44,6 +44,6 @@ export class UploadedImage {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @OneToMany(() => GenerationJob, (job) => job.uploadedImage)
+  @OneToMany('GenerationJob', 'uploadedImage')
   generationJobs!: GenerationJob[];
 }

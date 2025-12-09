@@ -6,14 +6,14 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import type { User } from '../../users/entities/user.entity';
 
 @Entity({ name: 'refresh_tokens' })
 export class RefreshToken {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => User, (user) => user.refreshTokens, { onDelete: 'CASCADE' })
+  @ManyToOne('User', 'refreshTokens', { onDelete: 'CASCADE' })
   user!: User;
 
   @Index()

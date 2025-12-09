@@ -9,7 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import { OptionalAuthGuard } from '../auth/guards/optional-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ImagesService } from './images.service';

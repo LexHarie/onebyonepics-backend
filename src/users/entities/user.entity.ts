@@ -6,9 +6,9 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { RefreshToken } from '../../auth/entities/refresh-token.entity';
-import { UploadedImage } from '../../images/entities/image.entity';
-import { GenerationJob } from '../../generation/entities/generation-job.entity';
+import type { RefreshToken } from '../../auth/entities/refresh-token.entity';
+import type { UploadedImage } from '../../images/entities/image.entity';
+import type { GenerationJob } from '../../generation/entities/generation-job.entity';
 
 @Entity({ name: 'users' })
 export class User {
@@ -33,12 +33,12 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 
-  @OneToMany(() => RefreshToken, (token) => token.user)
+  @OneToMany('RefreshToken', 'user')
   refreshTokens!: RefreshToken[];
 
-  @OneToMany(() => UploadedImage, (image) => image.user)
+  @OneToMany('UploadedImage', 'user')
   uploadedImages!: UploadedImage[];
 
-  @OneToMany(() => GenerationJob, (job) => job.user)
+  @OneToMany('GenerationJob', 'user')
   generationJobs!: GenerationJob[];
 }

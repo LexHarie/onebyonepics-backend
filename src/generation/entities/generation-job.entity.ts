@@ -6,9 +6,9 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
-import { UploadedImage } from '../../images/entities/image.entity';
-import { GeneratedImage } from './generated-image.entity';
+import type { User } from '../../users/entities/user.entity';
+import type { UploadedImage } from '../../images/entities/image.entity';
+import type { GeneratedImage } from './generated-image.entity';
 
 export type GenerationJobStatus =
   | 'pending'
@@ -21,7 +21,7 @@ export class GenerationJob {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @ManyToOne(() => User, (user) => user.generationJobs, {
+  @ManyToOne('User', 'generationJobs', {
     onDelete: 'SET NULL',
     nullable: true,
   })
@@ -30,7 +30,7 @@ export class GenerationJob {
   @Column({ name: 'session_id', nullable: true })
   sessionId?: string;
 
-  @ManyToOne(() => UploadedImage, (image) => image.generationJobs, {
+  @ManyToOne('UploadedImage', 'generationJobs', {
     eager: true,
     nullable: true,
     onDelete: 'SET NULL',
@@ -58,7 +58,7 @@ export class GenerationJob {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @OneToMany(() => GeneratedImage, (image) => image.generationJob, {
+  @OneToMany('GeneratedImage', 'generationJob', {
     cascade: true,
   })
   generatedImages!: GeneratedImage[];

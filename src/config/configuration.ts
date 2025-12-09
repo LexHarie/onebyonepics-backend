@@ -14,7 +14,7 @@ export default () => ({
   },
   google: {
     apiKey: process.env.GOOGLE_API_KEY,
-    model: process.env.GOOGLE_GENAI_MODEL || 'gemini-2.0-flash-exp',
+    model: process.env.GOOGLE_GENAI_MODEL || 'gemini-3-pro-image-preview',
   },
   spaces: {
     key: process.env.DO_SPACES_KEY,
