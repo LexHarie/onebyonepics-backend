@@ -5,13 +5,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { Repository, IsNull } from 'typeorm';
 import { SignOptions } from 'jsonwebtoken';
+import { DatabaseService } from '../database/database.service';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/entities/user.entity';
-import { RefreshToken } from './entities/refresh-token.entity';
+import type { User } from '../users/entities/user.entity';
+import { RefreshToken, RefreshTokenRow, rowToRefreshToken } from './entities/refresh-token.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -23,8 +22,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    @InjectRepository(RefreshToken)
-    private readonly refreshTokenRepository: Repository<RefreshToken>,
+    private readonly db: DatabaseService,
   ) {}
 
   private async generateTokens(user: User) {
@@ -67,12 +65,10 @@ export class AuthService {
     expiresAt: Date,
   ) {
     const tokenHash = await bcrypt.hash(refreshToken, REFRESH_TOKEN_SALT_ROUNDS);
-    const entity = this.refreshTokenRepository.create({
-      user,
-      tokenHash,
-      expiresAt,
-    });
-    await this.refreshTokenRepository.save(entity);
+    await this.db.sql`
+      INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+      VALUES (${user.id}, ${tokenHash}, ${expiresAt})
+    `;
   }
 
   async register(dto: RegisterDto) {
@@ -132,15 +128,13 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      const stored = await this.refreshTokenRepository.find({
-        where: {
-          user: { id: payload.sub },
-          revokedAt: IsNull(),
-        },
-        relations: ['user'],
-      });
+      const rows = await this.db.sql<RefreshTokenRow[]>`
+        SELECT * FROM refresh_tokens
+        WHERE user_id = ${payload.sub} AND revoked_at IS NULL
+      `;
 
-      const match = await this.findMatchingRefreshToken(stored, refreshToken);
+      const tokens = rows.map(rowToRefreshToken);
+      const match = await this.findMatchingRefreshToken(tokens, refreshToken);
       if (!match) {
         throw new UnauthorizedException('Refresh token revoked');
       }
@@ -169,23 +163,28 @@ export class AuthService {
   }
 
   private async revokeRefreshToken(userId: string, token: string) {
-    const tokens = await this.refreshTokenRepository.find({
-      where: { user: { id: userId }, revokedAt: IsNull() },
-      relations: ['user'],
-    });
+    const rows = await this.db.sql<RefreshTokenRow[]>`
+      SELECT * FROM refresh_tokens
+      WHERE user_id = ${userId} AND revoked_at IS NULL
+    `;
+
+    const tokens = rows.map(rowToRefreshToken);
 
     for (const stored of tokens) {
       const isMatch = await bcrypt.compare(token, stored.tokenHash);
       if (isMatch) {
-        stored.revokedAt = new Date();
-        await this.refreshTokenRepository.save(stored);
+        await this.db.sql`
+          UPDATE refresh_tokens
+          SET revoked_at = ${new Date()}
+          WHERE id = ${stored.id}
+        `;
         return;
       }
     }
   }
 
   sanitizeUser(user: User) {
-    const { passwordHash, refreshTokens, ...rest } = user as any;
+    const { passwordHash, ...rest } = user;
     return rest;
   }
 }
