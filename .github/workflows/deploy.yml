@@ -12,13 +12,36 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
+      # Deployment config
       IMAGE_NAME: ${{ secrets.DO_IMAGE_NAME || 'onebyonepics-backend' }}
       IMAGE_TAG: ${{ secrets.DO_IMAGE_TAG || 'latest' }}
       CONTAINER_NAME: ${{ secrets.DO_CONTAINER_NAME || 'onebyonepics-backend' }}
       DOCKER_RUN_FLAGS: ${{ secrets.DO_DOCKER_RUN_FLAGS || '-d --restart unless-stopped -p 3000:3000' }}
       IMAGE_TAR: onebyonepics-image.tar
       DEPLOY_PATH: ${{ secrets.DO_DEPLOY_PATH || '/tmp/onebyonepics-deploy' }}
-      DOCKER_ENV_FILE: ${{ secrets.DO_DOCKER_ENV_FILE }}
+      # App config
+      PORT: ${{ secrets.PORT || '3000' }}
+      API_PREFIX: ${{ secrets.API_PREFIX || 'api' }}
+      # Database
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # JWT
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+      JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN || '900s' }}
+      JWT_REFRESH_EXPIRES_IN: ${{ secrets.JWT_REFRESH_EXPIRES_IN || '7d' }}
+      # Google GenAI
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      GOOGLE_GENAI_MODEL: ${{ secrets.GOOGLE_GENAI_MODEL || 'gemini-2.0-flash-exp' }}
+      # DigitalOcean Spaces
+      DO_SPACES_KEY: ${{ secrets.DO_SPACES_KEY }}
+      DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
+      DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION || 'sgp1' }}
+      DO_SPACES_BUCKET: ${{ secrets.DO_SPACES_BUCKET || 'onebyonepics-s3' }}
+      DO_SPACES_CDN_ENDPOINT: ${{ secrets.DO_SPACES_CDN_ENDPOINT }}
+      # Other
+      CORS_ORIGIN: ${{ secrets.CORS_ORIGIN || 'http://localhost:5173' }}
+      CLEANUP_ORIGINAL_IMAGES_HOURS: ${{ secrets.CLEANUP_ORIGINAL_IMAGES_HOURS || '24' }}
+      CLEANUP_GENERATED_IMAGES_DAYS: ${{ secrets.CLEANUP_GENERATED_IMAGES_DAYS || '7' }}
 
     steps:
       - name: Checkout repository
@@ -69,6 +92,8 @@ jobs:
           CLEANUP_ORIGINAL_IMAGES_HOURS=${CLEANUP_ORIGINAL_IMAGES_HOURS}
           CLEANUP_GENERATED_IMAGES_DAYS=${CLEANUP_GENERATED_IMAGES_DAYS}
           EOF
+          # Remove leading whitespace from each line
+          sed -i 's/^[[:space:]]*//' deploy.env
 
       - name: Ensure remote directory
         run: |
@@ -120,9 +145,34 @@ jobs:
             set -euo pipefail
             IMAGE_TAR_PATH=\"$DEPLOY_PATH/$IMAGE_TAR\"
             ENV_FILE_PATH=\"$DEPLOY_PATH/.env\"
-            docker load -i \"\$IMAGE_TAR_PATH\"
+
+            echo '=== Stopping old container ==='
             docker stop \"$CONTAINER_NAME\" >/dev/null 2>&1 || true
             docker rm \"$CONTAINER_NAME\" >/dev/null 2>&1 || true
+
+            echo '=== Cleaning up Docker resources ==='
+            # Remove all stopped containers
+            docker container prune -f || true
+            # Remove dangling images (untagged)
+            docker image prune -f || true
+            # Remove unused images not referenced by any container
+            docker image prune -a -f --filter \"until=24h\" || true
+            # Remove unused volumes
+            docker volume prune -f || true
+            # Remove unused networks
+            docker network prune -f || true
+            # Clear build cache older than 24h
+            docker builder prune -f --filter \"until=24h\" || true
+
+            echo '=== Loading new image ==='
+            docker load -i \"\$IMAGE_TAR_PATH\"
+
+            echo '=== Starting new container ==='
             docker run $DOCKER_RUN_FLAGS --name \"$CONTAINER_NAME\" --env-file \"\$ENV_FILE_PATH\" \"$IMAGE_NAME:$IMAGE_TAG\"
+
+            echo '=== Cleanup ==='
             rm -f \"\$IMAGE_TAR_PATH\"
+
+            echo '=== Deployment complete ==='
+            docker ps | grep \"$CONTAINER_NAME\" || echo 'Warning: Container may not be running'
           "
