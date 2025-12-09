@@ -1,4 +1,4 @@
-FROM oven/bun:stable AS builder
+FROM oven/bun:latest AS builder
 WORKDIR /app
 
 # Install deps and compile the TypeScript sources for a reproducible bundle
@@ -7,7 +7,7 @@ COPY src ./src
 RUN bun install --frozen-lockfile
 RUN bun run build
 
-FROM oven/bun:stable AS runtime
+FROM oven/bun:latest AS runtime
 WORKDIR /app
 
 COPY --from=builder /app/dist ./dist
