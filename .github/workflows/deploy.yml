@@ -1,0 +1,94 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ${{ secrets.DO_IMAGE_NAME || 'onebyonepics-backend' }}
+      IMAGE_TAG: ${{ secrets.DO_IMAGE_TAG || 'latest' }}
+      CONTAINER_NAME: ${{ secrets.DO_CONTAINER_NAME || 'onebyonepics-backend' }}
+      DOCKER_RUN_FLAGS: ${{ secrets.DO_DOCKER_RUN_FLAGS || '-d --restart unless-stopped -p 3000:3000' }}
+      IMAGE_TAR: onebyonepics-image.tar
+      DEPLOY_PATH: ${{ secrets.DO_DEPLOY_PATH || '/tmp/onebyonepics-deploy' }}
+      DOCKER_ENV_FILE: ${{ secrets.DO_DOCKER_ENV_FILE }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build container image
+        run: |
+          docker build --tag "$IMAGE_NAME:$IMAGE_TAG" .
+
+      - name: Save image archive
+        run: |
+          docker save "$IMAGE_NAME:$IMAGE_TAG" -o "$IMAGE_TAR"
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DO_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          HOST="${{ secrets.DO_HOST }}"
+          PORT="${{ secrets.DO_SSH_PORT }}"
+          if [ -n "$PORT" ]; then
+            ssh-keyscan -p "$PORT" -H "$HOST" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+          fi
+
+      - name: Ensure remote directory
+        run: |
+          USER="${{ secrets.DO_USER }}"
+          HOST="${{ secrets.DO_HOST }}"
+          PORT="${{ secrets.DO_SSH_PORT }}"
+          TARGET="$USER@$HOST"
+          SSH_ARGS=""
+          if [ -n "$PORT" ]; then
+            SSH_ARGS="-p $PORT"
+          fi
+          ssh $SSH_ARGS "$TARGET" "mkdir -p \"$DEPLOY_PATH\""
+
+      - name: Upload image archive
+        run: |
+          USER="${{ secrets.DO_USER }}"
+          HOST="${{ secrets.DO_HOST }}"
+          PORT="${{ secrets.DO_SSH_PORT }}"
+          TARGET="$USER@$HOST"
+          SCP_PORT=""
+          if [ -n "$PORT" ]; then
+            SCP_PORT="-P $PORT"
+          fi
+          scp $SCP_PORT "$IMAGE_TAR" "$TARGET:$DEPLOY_PATH/$IMAGE_TAR"
+
+      - name: Deploy container on droplet
+        run: |
+          USER="${{ secrets.DO_USER }}"
+          HOST="${{ secrets.DO_HOST }}"
+          PORT="${{ secrets.DO_SSH_PORT }}"
+          TARGET="$USER@$HOST"
+          SSH_ARGS=""
+          if [ -n "$PORT" ]; then
+            SSH_ARGS="-p $PORT"
+          fi
+          ssh $SSH_ARGS "$TARGET" <<EOF
+            set -euo pipefail
+            IMAGE_TAR_PATH="$DEPLOY_PATH/$IMAGE_TAR"
+            docker load -i "\$IMAGE_TAR_PATH"
+            docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+            docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
+            EXTRA_ARGS=""
+            if [ -n "$DOCKER_ENV_FILE" ]; then
+              EXTRA_ARGS="--env-file $DOCKER_ENV_FILE"
+            fi
+            docker run $DOCKER_RUN_FLAGS --name "$CONTAINER_NAME" $EXTRA_ARGS "$IMAGE_NAME:$IMAGE_TAG"
+            rm -f "\$IMAGE_TAR_PATH"
+EOF
