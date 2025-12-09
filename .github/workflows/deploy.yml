@@ -89,6 +89,6 @@ jobs:
             if [ -n \"$DOCKER_ENV_FILE\" ]; then
               EXTRA_ARGS=\"--env-file $DOCKER_ENV_FILE\"
             fi
-            docker run $DOCKER_RUN_FLAGS --name \"$CONTAINER_NAME\" $EXTRA_ARGS \"$IMAGE_NAME:$IMAGE_TAG\"
+            docker run $DOCKER_RUN_FLAGS --name \"$CONTAINER_NAME\" \$EXTRA_ARGS \"$IMAGE_NAME:$IMAGE_TAG\"
             rm -f \"\$IMAGE_TAR_PATH\"
           "
