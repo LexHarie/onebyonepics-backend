@@ -1,40 +1,37 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import type { GenerationJob } from './generation-job.entity';
-
-@Entity({ name: 'generated_images' })
-export class GeneratedImage {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
-  @ManyToOne('GenerationJob', 'generatedImages', {
-    onDelete: 'CASCADE',
-  })
-  generationJob!: GenerationJob;
-
-  @Column({ name: 'variation_index', type: 'int' })
-  variationIndex!: number;
-
-  @Column({ name: 'storage_key', length: 500 })
-  storageKey!: string;
-
-  @Column({ name: 'storage_url', length: 1000 })
-  storageUrl!: string;
-
-  @Column({ name: 'mime_type', length: 100, default: 'image/png' })
-  mimeType!: string;
-
-  @Column({ name: 'file_size', type: 'int', nullable: true })
+export interface GeneratedImage {
+  id: string;
+  generationJobId: string;
+  variationIndex: number;
+  storageKey: string;
+  storageUrl: string;
+  mimeType: string;
   fileSize?: number | null;
+  expiresAt: Date;
+  createdAt: Date;
+}
 
-  @Column({ name: 'expires_at', type: 'timestamptz' })
-  expiresAt!: Date;
+export interface GeneratedImageRow {
+  id: string;
+  generation_job_id: string;
+  variation_index: number;
+  storage_key: string;
+  storage_url: string;
+  mime_type: string;
+  file_size: number | null;
+  expires_at: Date;
+  created_at: Date;
+}
 
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
+export function rowToGeneratedImage(row: GeneratedImageRow): GeneratedImage {
+  return {
+    id: row.id,
+    generationJobId: row.generation_job_id,
+    variationIndex: row.variation_index,
+    storageKey: row.storage_key,
+    storageUrl: row.storage_url,
+    mimeType: row.mime_type,
+    fileSize: row.file_size,
+    expiresAt: row.expires_at,
+    createdAt: row.created_at,
+  };
 }

@@ -4,24 +4,21 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import { DatabaseService } from '../database/database.service';
 import { ImagesService } from '../images/images.service';
 import { StorageService } from '../storage/storage.service';
 import { GenAIService } from '../genai/genai.service';
-import { GenerationJob, GenerationJobStatus } from './entities/generation-job.entity';
-import { GeneratedImage } from './entities/generated-image.entity';
-import { User } from '../users/entities/user.entity';
-import { ConfigService } from '@nestjs/config';
+import { GenerationJob, GenerationJobRow, GenerationJobStatus, rowToGenerationJob } from './entities/generation-job.entity';
+import { GeneratedImage, GeneratedImageRow, rowToGeneratedImage } from './entities/generated-image.entity';
+import { UploadedImageRow, rowToUploadedImage } from '../images/entities/image.entity';
+import type { User } from '../users/entities/user.entity';
 import { gridConfigs } from '../grid-configs/data/grid-configs.data';
 
 @Injectable()
 export class GenerationService {
   constructor(
-    @InjectRepository(GenerationJob)
-    private readonly jobsRepository: Repository<GenerationJob>,
-    @InjectRepository(GeneratedImage)
-    private readonly generatedImagesRepository: Repository<GeneratedImage>,
+    private readonly db: DatabaseService,
     private readonly imagesService: ImagesService,
     private readonly storageService: StorageService,
     private readonly genAIService: GenAIService,
@@ -53,35 +50,44 @@ export class GenerationService {
       throw new NotFoundException('Uploaded image not found');
     }
 
-    const job = this.jobsRepository.create({
-      user: user ? ({ id: (user as any).id } as User) : null,
-      sessionId,
-      uploadedImage: image,
-      gridConfigId,
-      variationCount,
-      status: 'pending',
-    });
+    const userId = user?.id ?? null;
 
-    const saved = await this.jobsRepository.save(job);
+    const rows = await this.db.sql<GenerationJobRow[]>`
+      INSERT INTO generation_jobs (
+        user_id, session_id, uploaded_image_id, grid_config_id,
+        variation_count, status
+      )
+      VALUES (
+        ${userId}, ${sessionId ?? null}, ${uploadedImageId}, ${gridConfigId},
+        ${variationCount}, 'pending'
+      )
+      RETURNING *
+    `;
+
+    const job = rowToGenerationJob(rows[0]);
 
     // Fire and forget processing
-    this.processJob(saved.id).catch((err) => {
+    this.processJob(job.id).catch((err) => {
       // error is handled inside processJob, swallow to avoid unhandled rejection
       return err;
     });
 
-    return { jobId: saved.id, status: saved.status };
+    return { jobId: job.id, status: job.status };
   }
 
   async getStatus(jobId: string, user?: User | null, sessionId?: string) {
-    const job = await this.jobsRepository.findOne({
-      where: { id: jobId },
-      relations: ['user'],
-    });
-    if (!job) throw new NotFoundException('Job not found');
+    const rows = await this.db.sql<GenerationJobRow[]>`
+      SELECT * FROM generation_jobs WHERE id = ${jobId} LIMIT 1
+    `;
+
+    if (rows.length === 0) throw new NotFoundException('Job not found');
+
+    const job = rowToGenerationJob(rows[0]);
+
     if (!this.canAccess(job, user, sessionId)) {
       throw new ForbiddenException('Access denied');
     }
+
     return {
       jobId: job.id,
       status: job.status,
@@ -96,12 +102,14 @@ export class GenerationService {
     sessionId?: string,
     includeData = false,
   ) {
-    const job = await this.jobsRepository.findOne({
-      where: { id: jobId },
-      relations: ['generatedImages', 'user'],
-    });
+    const jobRows = await this.db.sql<GenerationJobRow[]>`
+      SELECT * FROM generation_jobs WHERE id = ${jobId} LIMIT 1
+    `;
 
-    if (!job) throw new NotFoundException('Job not found');
+    if (jobRows.length === 0) throw new NotFoundException('Job not found');
+
+    const job = rowToGenerationJob(jobRows[0]);
+
     if (!this.canAccess(job, user, sessionId)) {
       throw new ForbiddenException('Access denied');
     }
@@ -110,21 +118,27 @@ export class GenerationService {
       throw new BadRequestException('Job not completed yet');
     }
 
+    const generatedRows = await this.db.sql<GeneratedImageRow[]>`
+      SELECT * FROM generated_images
+      WHERE generation_job_id = ${jobId}
+      ORDER BY variation_index ASC
+    `;
+
+    const generatedImages = generatedRows.map(rowToGeneratedImage);
+
     const images = await Promise.all(
-      job.generatedImages
-        .sort((a, b) => a.variationIndex - b.variationIndex)
-        .map(async (img) => {
-          const base = {
-            key: img.storageKey,
-            url: img.storageUrl,
-            mimeType: img.mimeType,
-          } as any;
-          if (includeData) {
-            const buffer = await this.storageService.getObjectBuffer(img.storageKey);
-            base.data = buffer.toString('base64');
-          }
-          return base;
-        }),
+      generatedImages.map(async (img) => {
+        const base = {
+          key: img.storageKey,
+          url: img.storageUrl,
+          mimeType: img.mimeType,
+        } as any;
+        if (includeData) {
+          const buffer = await this.storageService.getObjectBuffer(img.storageKey);
+          base.data = buffer.toString('base64');
+        }
+        return base;
+      }),
     );
 
     return { jobId: job.id, images };
@@ -135,20 +149,33 @@ export class GenerationService {
       throw new BadRequestException('User or session required');
     }
 
-    const jobs = await this.jobsRepository.find({
-      where: user ? { user: { id: user.id } } : { sessionId },
-      relations: ['generatedImages'],
-      order: { createdAt: 'DESC' },
-    });
+    let rows: GenerationJobRow[];
 
-    return jobs.map((job) => ({
-      id: job.id,
-      gridConfigId: job.gridConfigId,
-      variationCount: job.variationCount,
-      status: job.status,
-      createdAt: job.createdAt,
-      completedAt: job.completedAt,
-    }));
+    if (user) {
+      rows = await this.db.sql<GenerationJobRow[]>`
+        SELECT * FROM generation_jobs
+        WHERE user_id = ${user.id}
+        ORDER BY created_at DESC
+      `;
+    } else {
+      rows = await this.db.sql<GenerationJobRow[]>`
+        SELECT * FROM generation_jobs
+        WHERE session_id = ${sessionId}
+        ORDER BY created_at DESC
+      `;
+    }
+
+    return rows.map((row) => {
+      const job = rowToGenerationJob(row);
+      return {
+        id: job.id,
+        gridConfigId: job.gridConfigId,
+        variationCount: job.variationCount,
+        status: job.status,
+        createdAt: job.createdAt,
+        completedAt: job.completedAt,
+      };
+    });
   }
 
   private mapProgress(status: GenerationJobStatus) {
@@ -167,33 +194,56 @@ export class GenerationService {
   }
 
   private canAccess(job: GenerationJob, user?: User | null, sessionId?: string) {
-    if (user && job.user?.id === user.id) return true;
-    if (!job.user && sessionId && job.sessionId === sessionId) return true;
+    if (user && job.userId === user.id) return true;
+    if (!job.userId && sessionId && job.sessionId === sessionId) return true;
     if (sessionId && job.sessionId && job.sessionId === sessionId) return true;
     return false;
   }
 
   private async processJob(jobId: string) {
-    const job = await this.jobsRepository.findOne({
-      where: { id: jobId },
-      relations: ['uploadedImage'],
-    });
+    const jobRows = await this.db.sql<GenerationJobRow[]>`
+      SELECT * FROM generation_jobs WHERE id = ${jobId} LIMIT 1
+    `;
 
-    if (!job) return;
-    if (!job.uploadedImage) {
-      job.status = 'failed';
-      job.errorMessage = 'Uploaded image missing';
-      await this.jobsRepository.save(job);
+    if (jobRows.length === 0) return;
+
+    const job = rowToGenerationJob(jobRows[0]);
+
+    if (!job.uploadedImageId) {
+      await this.db.sql`
+        UPDATE generation_jobs
+        SET status = 'failed', error_message = 'Uploaded image missing'
+        WHERE id = ${jobId}
+      `;
       return;
     }
 
-    job.status = 'processing';
-    job.startedAt = new Date();
-    await this.jobsRepository.save(job);
+    // Get uploaded image
+    const imageRows = await this.db.sql<UploadedImageRow[]>`
+      SELECT * FROM uploaded_images WHERE id = ${job.uploadedImageId} LIMIT 1
+    `;
+
+    if (imageRows.length === 0) {
+      await this.db.sql`
+        UPDATE generation_jobs
+        SET status = 'failed', error_message = 'Uploaded image not found'
+        WHERE id = ${jobId}
+      `;
+      return;
+    }
+
+    const uploadedImage = rowToUploadedImage(imageRows[0]);
+
+    // Update status to processing
+    await this.db.sql`
+      UPDATE generation_jobs
+      SET status = 'processing', started_at = ${new Date()}
+      WHERE id = ${jobId}
+    `;
 
     try {
       const imageBuffer = await this.storageService.getObjectBuffer(
-        job.uploadedImage.storageKey,
+        uploadedImage.storageKey,
       );
 
       const generated = await this.genAIService.generateImages(
@@ -207,33 +257,36 @@ export class GenerationService {
         Date.now() + expiresDays * 24 * 60 * 60 * 1000,
       );
 
-      const generatedImages: GeneratedImage[] = [];
       for (let i = 0; i < generated.length; i++) {
         const gen = generated[i];
         const mimeType = gen.mimeType || 'image/png';
         const buffer = Buffer.from(gen.data, 'base64');
         const key = `generated/${job.id}/variation-${i + 1}.png`;
         const url = await this.storageService.uploadObject(key, buffer, mimeType);
-        const entity = this.generatedImagesRepository.create({
-          generationJob: job,
-          variationIndex: i + 1,
-          storageKey: key,
-          storageUrl: url,
-          mimeType,
-          fileSize: buffer.length,
-          expiresAt,
-        });
-        generatedImages.push(entity);
+
+        await this.db.sql`
+          INSERT INTO generated_images (
+            generation_job_id, variation_index, storage_key, storage_url,
+            mime_type, file_size, expires_at
+          )
+          VALUES (
+            ${jobId}, ${i + 1}, ${key}, ${url},
+            ${mimeType}, ${buffer.length}, ${expiresAt}
+          )
+        `;
       }
 
-      job.generatedImages = generatedImages;
-      job.status = 'completed';
-      job.completedAt = new Date();
-      await this.jobsRepository.save(job);
+      await this.db.sql`
+        UPDATE generation_jobs
+        SET status = 'completed', completed_at = ${new Date()}
+        WHERE id = ${jobId}
+      `;
     } catch (err) {
-      job.status = 'failed';
-      job.errorMessage = (err as Error).message;
-      await this.jobsRepository.save(job);
+      await this.db.sql`
+        UPDATE generation_jobs
+        SET status = 'failed', error_message = ${(err as Error).message}
+        WHERE id = ${jobId}
+      `;
     }
   }
 }

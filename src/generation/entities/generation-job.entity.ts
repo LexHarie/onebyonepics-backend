@@ -1,12 +1,3 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import type { User } from '../../users/entities/user.entity';
 import type { UploadedImage } from '../../images/entities/image.entity';
 import type { GeneratedImage } from './generated-image.entity';
 
@@ -16,50 +7,49 @@ export type GenerationJobStatus =
   | 'completed'
   | 'failed';
 
-@Entity({ name: 'generation_jobs' })
-export class GenerationJob {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
-  @ManyToOne('User', 'generationJobs', {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  user?: User | null;
-
-  @Column({ name: 'session_id', nullable: true })
-  sessionId?: string;
-
-  @ManyToOne('UploadedImage', 'generationJobs', {
-    eager: true,
-    nullable: true,
-    onDelete: 'SET NULL',
-  })
+export interface GenerationJob {
+  id: string;
+  userId?: string | null;
+  sessionId?: string | null;
+  uploadedImageId?: string | null;
+  gridConfigId: string;
+  variationCount: number;
+  status: GenerationJobStatus;
+  errorMessage?: string | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  createdAt: Date;
+  // Relations (populated when needed)
   uploadedImage?: UploadedImage | null;
+  generatedImages?: GeneratedImage[];
+}
 
-  @Column({ name: 'grid_config_id' })
-  gridConfigId!: string;
+export interface GenerationJobRow {
+  id: string;
+  user_id: string | null;
+  session_id: string | null;
+  uploaded_image_id: string | null;
+  grid_config_id: string;
+  variation_count: number;
+  status: GenerationJobStatus;
+  error_message: string | null;
+  started_at: Date | null;
+  completed_at: Date | null;
+  created_at: Date;
+}
 
-  @Column({ name: 'variation_count', type: 'int', default: 1 })
-  variationCount!: number;
-
-  @Column({ type: 'varchar', length: 50, default: 'pending' })
-  status!: GenerationJobStatus;
-
-  @Column({ name: 'error_message', type: 'text', nullable: true })
-  errorMessage?: string;
-
-  @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
-  startedAt?: Date;
-
-  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
-  completedAt?: Date;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
-
-  @OneToMany('GeneratedImage', 'generationJob', {
-    cascade: true,
-  })
-  generatedImages!: GeneratedImage[];
+export function rowToGenerationJob(row: GenerationJobRow): GenerationJob {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    sessionId: row.session_id,
+    uploadedImageId: row.uploaded_image_id,
+    gridConfigId: row.grid_config_id,
+    variationCount: row.variation_count,
+    status: row.status,
+    errorMessage: row.error_message,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    createdAt: row.created_at,
+  };
 }

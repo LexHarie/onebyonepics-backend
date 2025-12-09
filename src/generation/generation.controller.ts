@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { OptionalAuthGuard } from '../auth/guards/optional-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { User } from '../users/entities/user.entity';
+import type { User } from '../users/entities/user.entity';
 import { CreateGenerationDto } from './dto/create-generation.dto';
 import { GenerationService } from './generation.service';
 
