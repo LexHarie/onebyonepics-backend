@@ -5,21 +5,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { extname } from 'node:path';
-import { Repository } from 'typeorm';
-import { User } from '../users/entities/user.entity';
+import { DatabaseService } from '../database/database.service';
+import type { User } from '../users/entities/user.entity';
 import { StorageService } from '../storage/storage.service';
-import { UploadedImage } from './entities/image.entity';
+import { UploadedImage, UploadedImageRow, rowToUploadedImage } from './entities/image.entity';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 
 @Injectable()
 export class ImagesService {
   constructor(
-    @InjectRepository(UploadedImage)
-    private readonly imagesRepository: Repository<UploadedImage>,
+    private readonly db: DatabaseService,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
   ) {}
@@ -30,7 +28,7 @@ export class ImagesService {
     file: Buffer;
     filename: string;
     mimeType: string;
-  }) {
+  }): Promise<UploadedImage> {
     const { user, sessionId, file, mimeType, filename } = params;
 
     if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
@@ -48,31 +46,35 @@ export class ImagesService {
     const hours = this.configService.get<number>('cleanup.originalImagesHours') || 24;
     const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
-    const imageOwner = user ? ({ id: (user as any).id } as User) : null;
-    const image = this.imagesRepository.create({
-      user: imageOwner,
-      sessionId,
-      storageKey: key,
-      storageUrl: url,
-      mimeType,
-      fileSize: file.length,
-      originalFilename: filename,
-      expiresAt,
-    });
+    const userId = user?.id ?? null;
 
-    const saved = await this.imagesRepository.save(image);
-    return saved;
+    const rows = await this.db.sql<UploadedImageRow[]>`
+      INSERT INTO uploaded_images (
+        user_id, session_id, storage_key, storage_url,
+        mime_type, file_size, original_filename, expires_at
+      )
+      VALUES (
+        ${userId}, ${sessionId ?? null}, ${key}, ${url},
+        ${mimeType}, ${file.length}, ${filename ?? null}, ${expiresAt}
+      )
+      RETURNING *
+    `;
+
+    return rowToUploadedImage(rows[0]);
   }
 
-  async findById(id: string) {
-    return this.imagesRepository.findOne({ where: { id }, relations: ['user'] });
+  async findById(id: string): Promise<UploadedImage | null> {
+    const rows = await this.db.sql<UploadedImageRow[]>`
+      SELECT * FROM uploaded_images WHERE id = ${id} LIMIT 1
+    `;
+    return rows.length > 0 ? rowToUploadedImage(rows[0]) : null;
   }
 
   async getImageForRequester(
     id: string,
     user?: User | null,
     sessionId?: string,
-  ) {
+  ): Promise<UploadedImage> {
     const image = await this.findById(id);
     if (!image) {
       throw new NotFoundException('Image not found');
@@ -86,17 +88,17 @@ export class ImagesService {
   }
 
   private canAccess(image: UploadedImage, user?: User | null, sessionId?: string) {
-    if (user && image.user?.id === user.id) return true;
+    if (user && image.userId === user.id) return true;
     if (!user && sessionId && image.sessionId && image.sessionId === sessionId)
       return true;
-    if (!image.user && image.sessionId && sessionId === image.sessionId) return true;
+    if (!image.userId && image.sessionId && sessionId === image.sessionId) return true;
     return false;
   }
 
   async deleteImage(id: string, user?: User | null, sessionId?: string) {
     const image = await this.getImageForRequester(id, user, sessionId);
     await this.storageService.deleteObject(image.storageKey);
-    await this.imagesRepository.remove(image);
+    await this.db.sql`DELETE FROM uploaded_images WHERE id = ${id}`;
     return { success: true };
   }
 }

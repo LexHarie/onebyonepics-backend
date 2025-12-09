@@ -1,49 +1,40 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  ManyToOne,
-  OneToMany,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import type { User } from '../../users/entities/user.entity';
-import type { GenerationJob } from '../../generation/entities/generation-job.entity';
+export interface UploadedImage {
+  id: string;
+  userId?: string | null;
+  sessionId?: string | null;
+  storageKey: string;
+  storageUrl: string;
+  mimeType: string;
+  fileSize: number;
+  originalFilename?: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+}
 
-@Entity({ name: 'uploaded_images' })
-export class UploadedImage {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+export interface UploadedImageRow {
+  id: string;
+  user_id: string | null;
+  session_id: string | null;
+  storage_key: string;
+  storage_url: string;
+  mime_type: string;
+  file_size: number;
+  original_filename: string | null;
+  expires_at: Date;
+  created_at: Date;
+}
 
-  @ManyToOne('User', 'uploadedImages', {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
-  user?: User | null;
-
-  @Column({ name: 'session_id', nullable: true })
-  sessionId?: string;
-
-  @Column({ name: 'storage_key', length: 500 })
-  storageKey!: string;
-
-  @Column({ name: 'storage_url', length: 1000 })
-  storageUrl!: string;
-
-  @Column({ name: 'mime_type', length: 100 })
-  mimeType!: string;
-
-  @Column({ name: 'file_size', type: 'int' })
-  fileSize!: number;
-
-  @Column({ name: 'original_filename', length: 255, nullable: true })
-  originalFilename?: string;
-
-  @Column({ name: 'expires_at', type: 'timestamptz' })
-  expiresAt!: Date;
-
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt!: Date;
-
-  @OneToMany('GenerationJob', 'uploadedImage')
-  generationJobs!: GenerationJob[];
+export function rowToUploadedImage(row: UploadedImageRow): UploadedImage {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    sessionId: row.session_id,
+    storageKey: row.storage_key,
+    storageUrl: row.storage_url,
+    mimeType: row.mime_type,
+    fileSize: row.file_size,
+    originalFilename: row.original_filename,
+    expiresAt: row.expires_at,
+    createdAt: row.created_at,
+  };
 }

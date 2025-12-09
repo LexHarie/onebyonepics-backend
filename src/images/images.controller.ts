@@ -13,7 +13,7 @@ import type { FastifyRequest } from 'fastify';
 import { OptionalAuthGuard } from '../auth/guards/optional-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ImagesService } from './images.service';
-import { User } from '../users/entities/user.entity';
+import type { User } from '../users/entities/user.entity';
 
 @Controller('images')
 export class ImagesController {
