@@ -79,16 +79,16 @@ jobs:
           if [ -n "$PORT" ]; then
             SSH_ARGS="-p $PORT"
           fi
-          ssh $SSH_ARGS "$TARGET" <<EOF
+          ssh $SSH_ARGS "$TARGET" "
             set -euo pipefail
-            IMAGE_TAR_PATH="$DEPLOY_PATH/$IMAGE_TAR"
-            docker load -i "\$IMAGE_TAR_PATH"
-            docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
-            docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
-            EXTRA_ARGS=""
-            if [ -n "$DOCKER_ENV_FILE" ]; then
-              EXTRA_ARGS="--env-file $DOCKER_ENV_FILE"
+            IMAGE_TAR_PATH=\"$DEPLOY_PATH/$IMAGE_TAR\"
+            docker load -i \"\$IMAGE_TAR_PATH\"
+            docker stop \"$CONTAINER_NAME\" >/dev/null 2>&1 || true
+            docker rm \"$CONTAINER_NAME\" >/dev/null 2>&1 || true
+            EXTRA_ARGS=\"\"
+            if [ -n \"$DOCKER_ENV_FILE\" ]; then
+              EXTRA_ARGS=\"--env-file $DOCKER_ENV_FILE\"
             fi
-            docker run $DOCKER_RUN_FLAGS --name "$CONTAINER_NAME" $EXTRA_ARGS "$IMAGE_NAME:$IMAGE_TAG"
-            rm -f "\$IMAGE_TAR_PATH"
-EOF
+            docker run $DOCKER_RUN_FLAGS --name \"$CONTAINER_NAME\" $EXTRA_ARGS \"$IMAGE_NAME:$IMAGE_TAG\"
+            rm -f \"\$IMAGE_TAR_PATH\"
+          "
