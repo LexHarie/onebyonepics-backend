@@ -32,11 +32,14 @@ jobs:
         run: |
           docker save "$IMAGE_NAME:$IMAGE_TAG" -o "$IMAGE_TAR"
 
-      - name: Prepare SSH
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+
+      - name: Add droplet to known hosts
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DO_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
           HOST="${{ secrets.DO_HOST }}"
           PORT="${{ secrets.DO_SSH_PORT }}"
           if [ -n "$PORT" ]; then
