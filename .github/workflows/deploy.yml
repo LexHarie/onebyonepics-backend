@@ -48,6 +48,28 @@ jobs:
             ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
           fi
 
+      - name: Create env file
+        run: |
+          cat <<EOF > deploy.env
+          PORT=${PORT}
+          API_PREFIX=${API_PREFIX}
+          DATABASE_URL=${DATABASE_URL}
+          JWT_SECRET=${JWT_SECRET}
+          JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+          JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+          JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN}
+          GOOGLE_API_KEY=${GOOGLE_API_KEY}
+          GOOGLE_GENAI_MODEL=${GOOGLE_GENAI_MODEL}
+          DO_SPACES_KEY=${DO_SPACES_KEY}
+          DO_SPACES_SECRET=${DO_SPACES_SECRET}
+          DO_SPACES_REGION=${DO_SPACES_REGION}
+          DO_SPACES_BUCKET=${DO_SPACES_BUCKET}
+          DO_SPACES_CDN_ENDPOINT=${DO_SPACES_CDN_ENDPOINT}
+          CORS_ORIGIN=${CORS_ORIGIN}
+          CLEANUP_ORIGINAL_IMAGES_HOURS=${CLEANUP_ORIGINAL_IMAGES_HOURS}
+          CLEANUP_GENERATED_IMAGES_DAYS=${CLEANUP_GENERATED_IMAGES_DAYS}
+          EOF
+
       - name: Ensure remote directory
         run: |
           USER="${{ secrets.DO_USER }}"
@@ -59,6 +81,18 @@ jobs:
             SSH_ARGS="-p $PORT"
           fi
           ssh $SSH_ARGS "$TARGET" "mkdir -p \"$DEPLOY_PATH\""
+
+      - name: Upload env file
+        run: |
+          USER="${{ secrets.DO_USER }}"
+          HOST="${{ secrets.DO_HOST }}"
+          PORT="${{ secrets.DO_SSH_PORT }}"
+          TARGET="$USER@$HOST"
+          SCP_PORT=""
+          if [ -n "$PORT" ]; then
+            SCP_PORT="-P $PORT"
+          fi
+          scp $SCP_PORT deploy.env "$TARGET:$DEPLOY_PATH/.env"
 
       - name: Upload image archive
         run: |
@@ -85,13 +119,10 @@ jobs:
           ssh $SSH_ARGS "$TARGET" "
             set -euo pipefail
             IMAGE_TAR_PATH=\"$DEPLOY_PATH/$IMAGE_TAR\"
+            ENV_FILE_PATH=\"$DEPLOY_PATH/.env\"
             docker load -i \"\$IMAGE_TAR_PATH\"
             docker stop \"$CONTAINER_NAME\" >/dev/null 2>&1 || true
             docker rm \"$CONTAINER_NAME\" >/dev/null 2>&1 || true
-            EXTRA_ARGS=\"\"
-            if [ -n \"$DOCKER_ENV_FILE\" ]; then
-              EXTRA_ARGS=\"--env-file $DOCKER_ENV_FILE\"
-            fi
-            docker run $DOCKER_RUN_FLAGS --name \"$CONTAINER_NAME\" \$EXTRA_ARGS \"$IMAGE_NAME:$IMAGE_TAG\"
+            docker run $DOCKER_RUN_FLAGS --name \"$CONTAINER_NAME\" --env-file \"\$ENV_FILE_PATH\" \"$IMAGE_NAME:$IMAGE_TAG\"
             rm -f \"\$IMAGE_TAR_PATH\"
           "
