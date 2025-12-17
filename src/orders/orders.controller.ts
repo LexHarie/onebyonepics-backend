@@ -1,0 +1,180 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { OptionalAuthGuard } from '../auth/guards/optional-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { OrdersService } from './orders.service';
+import { MayaService } from '../payments/maya.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { gridConfigs } from '../grid-configs/data/grid-configs.data';
+import type { User } from '../users/entities/user.entity';
+
+@Controller('orders')
+export class OrdersController {
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly mayaService: MayaService,
+  ) {}
+
+  /**
+   * Create order and initiate Maya checkout
+   */
+  @Post()
+  @UseGuards(OptionalAuthGuard)
+  async createOrder(
+    @Body() dto: CreateOrderDto,
+    @CurrentUser() user?: User,
+  ) {
+    // Create the order
+    const order = await this.ordersService.createOrder(dto, user, dto.sessionId);
+
+    // Get grid config name for Maya checkout description
+    const gridConfig = gridConfigs.find((cfg) => cfg.id === dto.gridConfigId);
+    const gridConfigName = gridConfig?.name || dto.gridConfigId;
+
+    // Check if Maya is configured
+    if (!this.mayaService.isConfigured()) {
+      // Return order without checkout URL for testing
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        paymentStatus: order.paymentStatus,
+        checkoutUrl: null,
+        message: 'Payment gateway not configured. Please contact support.',
+      };
+    }
+
+    try {
+      // Create Maya checkout session
+      const checkout = await this.mayaService.createCheckout({
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        amount: order.totalAmount,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        customerPhone: order.customerPhone,
+        gridConfigName,
+      });
+
+      // Update order with Maya checkout ID
+      await this.ordersService.setMayaCheckoutId(order.id, checkout.checkoutId);
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        paymentStatus: order.paymentStatus,
+        checkoutUrl: checkout.redirectUrl,
+      };
+    } catch (error) {
+      // Log error but still return order info
+      console.error('Maya checkout creation failed:', error);
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        paymentStatus: order.paymentStatus,
+        checkoutUrl: null,
+        error: 'Failed to create payment session. Please try again.',
+      };
+    }
+  }
+
+  @Get(['number/:orderNumber', 'by-number/:orderNumber'])
+  @UseGuards(OptionalAuthGuard)
+  async getOrderByNumber(
+    @Param('orderNumber') orderNumber: string,
+    @CurrentUser() user?: User,
+    @Query('sessionId') sessionId?: string,
+  ) {
+    const order = await this.ordersService.getOrderByNumber(orderNumber, user, sessionId);
+
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerEmail: order.customerEmail,
+      gridConfigId: order.gridConfigId,
+      deliveryZone: order.deliveryZone,
+      productPrice: order.productPrice,
+      deliveryFee: order.deliveryFee,
+      totalAmount: order.totalAmount,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      downloadCount: order.downloadCount,
+      maxDownloads: order.maxDownloads,
+      composedImageKey: order.composedImageKey,
+      createdAt: order.createdAt,
+      paidAt: order.paidAt,
+      isDigitalOnly: order.isDigitalOnly,
+    };
+  }
+
+  @Get(':id')
+  @UseGuards(OptionalAuthGuard)
+  async getOrder(
+    @Param('id') id: string,
+    @CurrentUser() user?: User,
+    @Query('sessionId') sessionId?: string,
+  ) {
+    const order = await this.ordersService.getOrder(id, user, sessionId);
+
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerEmail: order.customerEmail,
+      gridConfigId: order.gridConfigId,
+      deliveryZone: order.deliveryZone,
+      productPrice: order.productPrice,
+      deliveryFee: order.deliveryFee,
+      totalAmount: order.totalAmount,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      downloadCount: order.downloadCount,
+      maxDownloads: order.maxDownloads,
+      composedImageKey: order.composedImageKey,
+      createdAt: order.createdAt,
+      paidAt: order.paidAt,
+      isDigitalOnly: order.isDigitalOnly,
+    };
+  }
+
+  @Get(':id/download')
+  @UseGuards(OptionalAuthGuard)
+  async getDownloadUrl(
+    @Param('id') id: string,
+    @CurrentUser() user?: User,
+    @Query('sessionId') sessionId?: string,
+  ) {
+    return this.ordersService.getDownloadUrl(id, user, sessionId);
+  }
+
+  @Get()
+  @UseGuards(OptionalAuthGuard)
+  async getOrders(
+    @CurrentUser() user?: User,
+    @Query('sessionId') sessionId?: string,
+  ) {
+    const orders = await this.ordersService.getOrders(user, sessionId);
+
+    return orders.map((order) => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      gridConfigId: order.gridConfigId,
+      totalAmount: order.totalAmount,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      createdAt: order.createdAt,
+      isDigitalOnly: order.isDigitalOnly,
+    }));
+  }
+}
