@@ -31,18 +31,22 @@ export class StorageService {
     });
   }
 
-  async uploadObject(key: string, body: Buffer, mimeType: string) {
+  /**
+   * Upload an object to storage (private by default)
+   * @returns The storage key (not a public URL)
+   */
+  async uploadObject(key: string, body: Buffer, mimeType: string): Promise<string> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
         Key: key,
         Body: body,
         ContentType: mimeType,
-        ACL: 'public-read',
+        // No ACL = private by default
       }),
     );
 
-    return this.getPublicUrl(key);
+    return key;
   }
 
   async deleteObject(key: string) {
@@ -68,8 +72,24 @@ export class StorageService {
     return Buffer.concat(chunks);
   }
 
-  async getSignedUrl(key: string, expiresInSeconds = 3600) {
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+  /**
+   * Get a signed URL for private object access
+   * @param key Storage key
+   * @param expiresInSeconds URL expiration time (default 1 hour)
+   * @param downloadFilename Optional filename for download disposition
+   */
+  async getSignedUrl(
+    key: string,
+    expiresInSeconds = 3600,
+    downloadFilename?: string,
+  ): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ...(downloadFilename && {
+        ResponseContentDisposition: `attachment; filename="${downloadFilename}"`,
+      }),
+    });
     return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
   }
 
