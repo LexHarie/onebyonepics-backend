@@ -290,10 +290,12 @@ export class GenerationService {
         uploadedImage.storageKey,
       );
 
-      const generated = await this.genAIService.generateImages(
+      const generationResult = await this.genAIService.generateImages(
         imageBuffer,
         job.variationCount,
       );
+
+      const { images } = generationResult;
 
       const expiresDays =
         this.configService.get<number>('cleanup.generatedImagesDays') || 7;
@@ -301,8 +303,8 @@ export class GenerationService {
         Date.now() + expiresDays * 24 * 60 * 60 * 1000,
       );
 
-      for (let i = 0; i < generated.length; i++) {
-        const gen = generated[i];
+      for (let i = 0; i < images.length; i++) {
+        const gen = images[i];
         const mimeType = gen.mimeType || 'image/png';
         let buffer: Buffer = Buffer.from(gen.data, 'base64');
 

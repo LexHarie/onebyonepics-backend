@@ -10,12 +10,17 @@ import { WatermarkService } from '../watermark/watermark.service';
 import { GenerationJobRow, rowToGenerationJob } from './entities/generation-job.entity';
 import { UploadedImageRow, rowToUploadedImage } from '../images/entities/image.entity';
 import { GENERATION_QUEUE } from '../queue/queue.module';
+import { RateLimitExceededException } from '../rate-limiter/rate-limiter.service';
 
 export interface GenerationJobData {
   jobId: string;
 }
 
-@Processor(GENERATION_QUEUE)
+// Concurrency is set to 5 to stay under the 20 RPM limit for primary model
+// With avg 2 API calls per job, 5 concurrent jobs = ~10 RPM (safe margin)
+@Processor(GENERATION_QUEUE, {
+  concurrency: 5,
+})
 export class GenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(GenerationProcessor.name);
 
@@ -82,9 +87,15 @@ export class GenerationProcessor extends WorkerHost {
         uploadedImage.storageKey,
       );
 
-      const generated = await this.genAIService.generateImages(
+      const generationResult = await this.genAIService.generateImages(
         imageBuffer,
         genJob.variationCount,
+      );
+
+      const { images, modelUsed, isFallback, totalTokens } = generationResult;
+
+      this.logger.log(
+        `Generation ${jobId}: model=${modelUsed}, fallback=${isFallback}, tokens=${totalTokens}`,
       );
 
       const expiresDays =
@@ -93,8 +104,8 @@ export class GenerationProcessor extends WorkerHost {
         Date.now() + expiresDays * 24 * 60 * 60 * 1000,
       );
 
-      for (let i = 0; i < generated.length; i++) {
-        const gen = generated[i];
+      for (let i = 0; i < images.length; i++) {
+        const gen = images[i];
         const mimeType = gen.mimeType || 'image/png';
         const originalBuffer = Buffer.from(gen.data, 'base64');
 
@@ -131,7 +142,7 @@ export class GenerationProcessor extends WorkerHost {
         `;
 
         // Report progress
-        await job.updateProgress(Math.round(((i + 1) / generated.length) * 90));
+        await job.updateProgress(Math.round(((i + 1) / images.length) * 90));
       }
 
       // Increment quota for anonymous users after successful generation
@@ -148,13 +159,23 @@ export class GenerationProcessor extends WorkerHost {
 
       this.logger.log(`Generation job ${jobId} completed successfully`);
     } catch (err) {
-      this.logger.error(`Generation job ${jobId} failed: ${(err as Error).message}`);
+      const error = err as Error;
+      this.logger.error(`Generation job ${jobId} failed: ${error.message}`);
+
+      // Handle rate limit errors specifically
+      const isRateLimitError = err instanceof RateLimitExceededException;
+      const errorMessage = isRateLimitError
+        ? `Rate limit exceeded: ${error.message}`
+        : error.message;
+
       await this.db.sql`
         UPDATE generation_jobs
-        SET status = 'failed', error_message = ${(err as Error).message}
+        SET status = 'failed', error_message = ${errorMessage}
         WHERE id = ${jobId}
       `;
-      throw err; // Re-throw to trigger retry
+
+      // Re-throw to trigger BullMQ retry (exponential backoff will help with rate limits)
+      throw err;
     }
   }
 
