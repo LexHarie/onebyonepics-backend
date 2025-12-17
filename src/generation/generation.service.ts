@@ -2,27 +2,39 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../database/database.service';
 import { ImagesService } from '../images/images.service';
 import { StorageService } from '../storage/storage.service';
 import { GenAIService } from '../genai/genai.service';
+import { QuotasService } from '../quotas/quotas.service';
+import { WatermarkService } from '../watermark/watermark.service';
 import { GenerationJob, GenerationJobRow, GenerationJobStatus, rowToGenerationJob } from './entities/generation-job.entity';
 import { GeneratedImage, GeneratedImageRow, rowToGeneratedImage } from './entities/generated-image.entity';
 import { UploadedImageRow, rowToUploadedImage } from '../images/entities/image.entity';
 import type { User } from '../users/entities/user.entity';
 import { gridConfigs } from '../grid-configs/data/grid-configs.data';
+import { GENERATION_QUEUE } from '../queue/queue.module';
+import type { GenerationJobData } from './generation.processor';
 
 @Injectable()
 export class GenerationService {
+  private readonly logger = new Logger(GenerationService.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly imagesService: ImagesService,
     private readonly storageService: StorageService,
     private readonly genAIService: GenAIService,
     private readonly configService: ConfigService,
+    private readonly quotasService: QuotasService,
+    private readonly watermarkService: WatermarkService,
+    @InjectQueue(GENERATION_QUEUE) private readonly generationQueue: Queue<GenerationJobData>,
   ) {}
 
   async createJob(params: {
@@ -34,6 +46,18 @@ export class GenerationService {
   }) {
     const { user, sessionId, uploadedImageId, gridConfigId } = params;
     const variationCount = Math.min(Math.max(params.variationCount || 1, 1), 4);
+
+    // Check quota for anonymous users
+    if (!user && sessionId) {
+      const canGenerate = await this.quotasService.canGenerate(sessionId, variationCount);
+      if (!canGenerate) {
+        this.logger.warn(`Session ${sessionId} exceeded preview quota`);
+        throw new ForbiddenException({
+          code: 'QUOTA_EXCEEDED',
+          message: 'Free preview limit reached. Please sign up or purchase to continue.',
+        });
+      }
+    }
 
     const configExists = gridConfigs.some((cfg) => cfg.id === gridConfigId);
     if (!configExists) {
@@ -66,11 +90,20 @@ export class GenerationService {
 
     const job = rowToGenerationJob(rows[0]);
 
-    // Fire and forget processing
-    this.processJob(job.id).catch((err) => {
-      // error is handled inside processJob, swallow to avoid unhandled rejection
-      return err;
-    });
+    // Add job to queue for processing
+    await this.generationQueue.add(
+      'generate',
+      { jobId: job.id },
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+      },
+    );
+
+    this.logger.log(`Generation job ${job.id} added to queue`);
 
     return { jobId: job.id, status: job.status };
   }
@@ -118,9 +151,11 @@ export class GenerationService {
       throw new BadRequestException('Job not completed yet');
     }
 
+    // Only return preview (watermarked) images to the frontend
     const generatedRows = await this.db.sql<GeneratedImageRow[]>`
       SELECT * FROM generated_images
       WHERE generation_job_id = ${jobId}
+        AND is_preview = true
       ORDER BY variation_index ASC
     `;
 
@@ -128,11 +163,20 @@ export class GenerationService {
 
     const images = await Promise.all(
       generatedImages.map(async (img) => {
-        const base = {
+        // Generate a signed URL with 5-minute expiration
+        const signedUrl = await this.storageService.getSignedUrl(img.storageKey, 300);
+        const base: {
+          key: string;
+          url: string;
+          mimeType: string;
+          isPreview: boolean;
+          data?: string;
+        } = {
           key: img.storageKey,
-          url: img.storageUrl,
+          url: signedUrl,
           mimeType: img.mimeType,
-        } as any;
+          isPreview: img.isPreview,
+        };
         if (includeData) {
           const buffer = await this.storageService.getObjectBuffer(img.storageKey);
           base.data = buffer.toString('base64');
@@ -260,20 +304,30 @@ export class GenerationService {
       for (let i = 0; i < generated.length; i++) {
         const gen = generated[i];
         const mimeType = gen.mimeType || 'image/png';
-        const buffer = Buffer.from(gen.data, 'base64');
+        let buffer = Buffer.from(gen.data, 'base64');
+
+        // Apply watermark to preview images
+        buffer = await this.watermarkService.applyPreviewWatermark(buffer);
+
         const key = `generated/${job.id}/variation-${i + 1}.png`;
-        const url = await this.storageService.uploadObject(key, buffer, mimeType);
+        await this.storageService.uploadObject(key, buffer, mimeType);
 
         await this.db.sql`
           INSERT INTO generated_images (
-            generation_job_id, variation_index, storage_key, storage_url,
-            mime_type, file_size, expires_at
+            generation_job_id, variation_index, storage_key,
+            mime_type, file_size, expires_at, is_permanent, is_preview
           )
           VALUES (
-            ${jobId}, ${i + 1}, ${key}, ${url},
-            ${mimeType}, ${buffer.length}, ${expiresAt}
+            ${jobId}, ${i + 1}, ${key},
+            ${mimeType}, ${buffer.length}, ${expiresAt}, false, true
           )
         `;
+      }
+
+      // Increment quota for anonymous users after successful generation
+      if (job.sessionId && !job.userId) {
+        await this.quotasService.incrementUsage(job.sessionId, job.variationCount);
+        this.logger.debug(`Incremented quota for session ${job.sessionId}`);
       }
 
       await this.db.sql`
