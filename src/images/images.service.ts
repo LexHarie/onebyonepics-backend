@@ -41,7 +41,7 @@ export class ImagesService {
 
     const ext = extname(filename || '').replace('.', '') || 'jpg';
     const key = `uploads/${Date.now()}-${randomUUID()}.${ext}`;
-    const url = await this.storageService.uploadObject(key, file, mimeType);
+    await this.storageService.uploadObject(key, file, mimeType);
 
     const hours = this.configService.get<number>('cleanup.originalImagesHours') || 24;
     const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -50,17 +50,24 @@ export class ImagesService {
 
     const rows = await this.db.sql<UploadedImageRow[]>`
       INSERT INTO uploaded_images (
-        user_id, session_id, storage_key, storage_url,
+        user_id, session_id, storage_key,
         mime_type, file_size, original_filename, expires_at
       )
       VALUES (
-        ${userId}, ${sessionId ?? null}, ${key}, ${url},
+        ${userId}, ${sessionId ?? null}, ${key},
         ${mimeType}, ${file.length}, ${filename ?? null}, ${expiresAt}
       )
       RETURNING *
     `;
 
     return rowToUploadedImage(rows[0]);
+  }
+
+  /**
+   * Get a signed URL for accessing an uploaded image
+   */
+  async getSignedUrl(image: UploadedImage, expiresInSeconds = 3600): Promise<string> {
+    return this.storageService.getSignedUrl(image.storageKey, expiresInSeconds);
   }
 
   async findById(id: string): Promise<UploadedImage | null> {
