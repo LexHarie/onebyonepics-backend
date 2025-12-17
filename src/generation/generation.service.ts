@@ -304,7 +304,7 @@ export class GenerationService {
       for (let i = 0; i < generated.length; i++) {
         const gen = generated[i];
         const mimeType = gen.mimeType || 'image/png';
-        let buffer = Buffer.from(gen.data, 'base64');
+        let buffer: Buffer = Buffer.from(gen.data, 'base64');
 
         // Apply watermark to preview images
         buffer = await this.watermarkService.applyPreviewWatermark(buffer);
