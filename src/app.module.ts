@@ -10,6 +10,11 @@ import { GridConfigsModule } from './grid-configs/grid-configs.module';
 import { StorageModule } from './storage/storage.module';
 import { GenAIModule } from './genai/genai.module';
 import { CleanupModule } from './cleanup/cleanup.module';
+import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { QuotasModule } from './quotas/quotas.module';
+import { WatermarkModule } from './watermark/watermark.module';
 
 @Module({
   imports: [
@@ -24,6 +29,11 @@ import { CleanupModule } from './cleanup/cleanup.module';
     GenerationModule,
     GridConfigsModule,
     CleanupModule,
+    OrdersModule,
+    PaymentsModule,
+    WebhooksModule,
+    QuotasModule,
+    WatermarkModule,
   ],
 })
 export class AppModule {}
