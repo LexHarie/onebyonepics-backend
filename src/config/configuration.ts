@@ -2,6 +2,7 @@ export default () => ({
   app: {
     port: parseInt(process.env.PORT || '3001', 10),
     apiPrefix: process.env.API_PREFIX || 'api',
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   },
   database: {
     url: process.env.DATABASE_URL,
@@ -29,5 +30,14 @@ export default () => ({
   cleanup: {
     originalImagesHours: parseInt(process.env.CLEANUP_ORIGINAL_IMAGES_HOURS || '24', 10),
     generatedImagesDays: parseInt(process.env.CLEANUP_GENERATED_IMAGES_DAYS || '7', 10),
+  },
+  maya: {
+    sandbox: process.env.MAYA_SANDBOX !== 'false',
+    publicKey: process.env.MAYA_PUBLIC_KEY,
+    secretKey: process.env.MAYA_SECRET_KEY,
+    webhookSecretKey: process.env.MAYA_WEBHOOK_SECRET_KEY,
+  },
+  redis: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
   },
 });
