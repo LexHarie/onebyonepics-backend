@@ -15,12 +15,14 @@ import { PaymentsModule } from './payments/payments.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { QuotasModule } from './quotas/quotas.module';
 import { WatermarkModule } from './watermark/watermark.module';
+import { RateLimiterModule } from './rate-limiter';
 
 @Module({
   imports: [
     ConfigModule,
     ScheduleModule.forRoot(),
     DatabaseModule,
+    RateLimiterModule,
     StorageModule,
     GenAIModule,
     UsersModule,
