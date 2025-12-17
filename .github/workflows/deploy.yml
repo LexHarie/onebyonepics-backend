@@ -167,6 +167,12 @@ jobs:
             echo '=== Loading new image ==='
             docker load -i \"\$IMAGE_TAR_PATH\"
 
+            echo '=== Running database migrations ==='
+            docker run --rm --env-file \"\$ENV_FILE_PATH\" \"$IMAGE_NAME:$IMAGE_TAG\" bun run migrate
+
+            echo '=== Validating database schema ==='
+            docker run --rm --env-file \"\$ENV_FILE_PATH\" \"$IMAGE_NAME:$IMAGE_TAG\" bun run schema:validate
+
             echo '=== Starting new container ==='
             docker run $DOCKER_RUN_FLAGS --name \"$CONTAINER_NAME\" --env-file \"\$ENV_FILE_PATH\" \"$IMAGE_NAME:$IMAGE_TAG\"
 
