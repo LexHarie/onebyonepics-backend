@@ -43,9 +43,12 @@ export class ImagesController {
       mimeType: file.mimetype,
     });
 
+    // Return a signed URL (valid for 1 hour) instead of public URL
+    const signedUrl = await this.imagesService.getSignedUrl(uploaded, 3600);
+
     return {
       id: uploaded.id,
-      url: uploaded.storageUrl,
+      url: signedUrl,
       expiresAt: uploaded.expiresAt,
     };
   }
