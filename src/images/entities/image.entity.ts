@@ -3,7 +3,6 @@ export interface UploadedImage {
   userId?: string | null;
   sessionId?: string | null;
   storageKey: string;
-  storageUrl: string;
   mimeType: string;
   fileSize: number;
   originalFilename?: string | null;
@@ -16,7 +15,6 @@ export interface UploadedImageRow {
   user_id: string | null;
   session_id: string | null;
   storage_key: string;
-  storage_url: string;
   mime_type: string;
   file_size: number;
   original_filename: string | null;
@@ -30,7 +28,6 @@ export function rowToUploadedImage(row: UploadedImageRow): UploadedImage {
     userId: row.user_id,
     sessionId: row.session_id,
     storageKey: row.storage_key,
-    storageUrl: row.storage_url,
     mimeType: row.mime_type,
     fileSize: row.file_size,
     originalFilename: row.original_filename,
