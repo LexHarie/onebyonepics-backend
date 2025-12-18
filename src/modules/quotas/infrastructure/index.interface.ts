@@ -1,4 +1,4 @@
-import { QuotasRepository } from './quotas.repository';
+import { QuotasRepository } from './database/repositories/quotas.repository';
 import { IQuotasRepositoryToken } from '../domain/quotas.repository.interface';
 
 export const QuotasRepositoryInterfaces = [

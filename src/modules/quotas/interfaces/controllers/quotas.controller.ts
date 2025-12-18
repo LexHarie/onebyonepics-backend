@@ -4,7 +4,7 @@ import {
   Query,
   BadRequestException,
 } from '@nestjs/common';
-import { QuotasService } from '../application/quotas.service';
+import { QuotasService } from '../../application/quotas.service';
 
 @Controller('session')
 export class QuotasController {

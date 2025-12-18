@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../../database/infrastructure/database.service';
-import { IQuotasRepository, SessionQuotaRow } from '../domain/quotas.repository.interface';
+import { DatabaseService } from '../../../../database/infrastructure/database.service';
+import { IQuotasRepository, SessionQuotaRow } from '../../../domain/quotas.repository.interface';
 
 @Injectable()
 export class QuotasRepository implements IQuotasRepository {
