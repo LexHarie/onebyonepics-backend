@@ -6,10 +6,10 @@ import { GenerationProcessor } from './generation.processor';
 import { ImagesModule } from '../images/images.module';
 import { StorageModule } from '../storage/storage.module';
 import { GenAIModule } from '../genai/genai.module';
-import { AuthModule } from '../auth/auth.module';
 import { QuotasModule } from '../quotas/quotas.module';
 import { WatermarkModule } from '../watermark/watermark.module';
 import { QueueModule } from '../queue/queue.module';
+import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
 
 @Module({
   imports: [
@@ -17,13 +17,12 @@ import { QueueModule } from '../queue/queue.module';
     ImagesModule,
     StorageModule,
     GenAIModule,
-    AuthModule,
     QuotasModule,
     WatermarkModule,
     QueueModule,
   ],
   controllers: [GenerationController],
-  providers: [GenerationService, GenerationProcessor],
+  providers: [GenerationService, GenerationProcessor, OptionalAuthGuard],
   exports: [GenerationService],
 })
 export class GenerationModule {}
