@@ -8,6 +8,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
+import type { User } from '@buiducnhat/nest-better-auth';
 import { DatabaseService } from '../database/database.service';
 import { ImagesService } from '../images/images.service';
 import { StorageService } from '../storage/storage.service';
@@ -17,7 +18,6 @@ import { WatermarkService } from '../watermark/watermark.service';
 import { GenerationJob, GenerationJobRow, GenerationJobStatus, rowToGenerationJob } from './entities/generation-job.entity';
 import { GeneratedImage, GeneratedImageRow, rowToGeneratedImage } from './entities/generated-image.entity';
 import { UploadedImageRow, rowToUploadedImage } from '../images/entities/image.entity';
-import type { User } from '../users/entities/user.entity';
 import { gridConfigs } from '../grid-configs/data/grid-configs.data';
 import { GENERATION_QUEUE } from '../queue/queue.module';
 import type { GenerationJobData } from './generation.processor';
