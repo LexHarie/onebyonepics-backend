@@ -9,7 +9,7 @@ import {
   IsBoolean,
   ValidateIf,
 } from 'class-validator';
-import type { DeliveryZone } from '../../domain/entities/order.entity';
+import type { DeliveryZone } from '../domain/entities/order.entity';
 
 export class CreateOrderDto {
   @IsString()

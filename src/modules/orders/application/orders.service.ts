@@ -19,7 +19,7 @@ import {
   DeliveryZone,
   rowToOrder,
 } from '../domain/entities/order.entity';
-import { CreateOrderDto } from '../interfaces/dto/create-order.dto';
+import { CreateOrderDto } from '../dto/create-order.dto';
 import { rowToGeneratedImage } from '../../generation/domain/entities/generated-image.entity';
 import {
   IOrdersRepository,
