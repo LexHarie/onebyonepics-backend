@@ -1,5 +1,5 @@
 import { CleanupRepository } from './cleanup.repository';
-import { ICleanupRepositoryToken } from './cleanup.repository.interface';
+import { ICleanupRepositoryToken } from '../domain/cleanup.repository.interface';
 
 export const CleanupRepositoryInterfaces = [
   {

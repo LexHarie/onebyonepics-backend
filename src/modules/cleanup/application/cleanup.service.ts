@@ -1,12 +1,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { StorageService } from '../storage/storage.service';
-import { rowToUploadedImage } from '../images/entities/image.entity';
-import { rowToGeneratedImage } from '../generation/entities/generated-image.entity';
+import { StorageService } from '../../storage/infrastructure/storage.service';
+import { rowToUploadedImage } from '../../images/domain/entities/image.entity';
+import { rowToGeneratedImage } from '../../generation/domain/entities/generated-image.entity';
 import {
   ICleanupRepository,
   ICleanupRepositoryToken,
-} from './cleanup.repository.interface';
+} from '../domain/cleanup.repository.interface';
 
 @Injectable()
 export class CleanupService {
