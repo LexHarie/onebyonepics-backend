@@ -1,0 +1,38 @@
+import { Injectable } from '@nestjs/common';
+import { DatabaseService } from '../database/database.service';
+import { UploadedImageRow } from '../images/entities/image.entity';
+import { GeneratedImageRow } from '../generation/entities/generated-image.entity';
+
+export const CLEANUP_REPOSITORY = Symbol('CLEANUP_REPOSITORY');
+
+export interface CleanupRepositoryInterface {
+  findExpiredUploads(now: Date): Promise<UploadedImageRow[]>;
+  deleteUploadById(id: string): Promise<void>;
+  findExpiredGenerated(now: Date): Promise<GeneratedImageRow[]>;
+  deleteGeneratedById(id: string): Promise<void>;
+}
+
+@Injectable()
+export class CleanupRepository implements CleanupRepositoryInterface {
+  constructor(private readonly db: DatabaseService) {}
+
+  async findExpiredUploads(now: Date): Promise<UploadedImageRow[]> {
+    return this.db.sql<UploadedImageRow[]>`
+      SELECT * FROM uploaded_images WHERE expires_at < ${now}
+    `;
+  }
+
+  async deleteUploadById(id: string): Promise<void> {
+    await this.db.sql`DELETE FROM uploaded_images WHERE id = ${id}`;
+  }
+
+  async findExpiredGenerated(now: Date): Promise<GeneratedImageRow[]> {
+    return this.db.sql<GeneratedImageRow[]>`
+      SELECT * FROM generated_images WHERE expires_at < ${now}
+    `;
+  }
+
+  async deleteGeneratedById(id: string): Promise<void> {
+    await this.db.sql`DELETE FROM generated_images WHERE id = ${id}`;
+  }
+}
