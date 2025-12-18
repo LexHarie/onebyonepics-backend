@@ -1,5 +1,5 @@
 import { OrdersRepository } from './orders.repository';
-import { IOrdersRepositoryToken } from './orders.repository.interface';
+import { IOrdersRepositoryToken } from '../domain/orders.repository.interface';
 
 export const OrdersRepositoryInterfaces = [
   {

@@ -8,23 +8,23 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import type { User } from '@buiducnhat/nest-better-auth';
-import { StorageService } from '../storage/storage.service';
-import { GenerationService } from '../generation/generation.service';
-import { CompositionService } from '../composition/composition.service';
-import { gridConfigs } from '../grid-configs/data/grid-configs.data';
+import { StorageService } from '../../storage/infrastructure/storage.service';
+import { GenerationService } from '../../generation/application/generation.service';
+import { CompositionService } from '../../composition/application/composition.service';
+import { gridConfigs } from '../../grid-configs/domain/data/grid-configs.data';
 import {
   Order,
   PaymentStatus,
   OrderStatus,
   DeliveryZone,
   rowToOrder,
-} from './entities/order.entity';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { rowToGeneratedImage } from '../generation/entities/generated-image.entity';
+} from '../domain/entities/order.entity';
+import { CreateOrderDto } from '../interfaces/dto/create-order.dto';
+import { rowToGeneratedImage } from '../../generation/domain/entities/generated-image.entity';
 import {
   IOrdersRepository,
   IOrdersRepositoryToken,
-} from './orders.repository.interface';
+} from '../domain/orders.repository.interface';
 
 // Delivery fees in centavos
 const DELIVERY_FEES: Record<DeliveryZone, number> = {
