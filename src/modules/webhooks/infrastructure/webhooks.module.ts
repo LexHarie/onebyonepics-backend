@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { WebhooksController } from './webhooks.controller';
-import { PaymentsModule } from '../payments/payments.module';
-import { OrdersModule } from '../orders/orders.module';
+import { PaymentsModule } from '../../payments/infrastructure/payments.module';
+import { OrdersModule } from '../../orders/infrastructure/orders.module';
 
 @Module({
   imports: [PaymentsModule, OrdersModule],
