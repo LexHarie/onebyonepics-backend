@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { GridConfigsController } from './grid-configs.controller';
-import { GridConfigsService } from './grid-configs.service';
+import { GridConfigsService } from '../application/grid-configs.service';
 
 @Module({
   controllers: [GridConfigsController],

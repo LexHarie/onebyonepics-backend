@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { gridConfigs } from './data/grid-configs.data';
+import { gridConfigs } from '../domain/data/grid-configs.data';
 
 @Injectable()
 export class GridConfigsService {
