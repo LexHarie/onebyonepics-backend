@@ -1,5 +1,9 @@
-import { OrderRow, OrderStatus, PaymentStatus } from './entities/order.entity';
-import { GeneratedImageRow } from '../../generation/domain/entities/generated-image.entity';
+import type {
+  OrderRow,
+  OrderStatus,
+  PaymentStatus,
+} from './entities/order.entity';
+import type { GeneratedImageRow } from '../../generation/domain/entities/generated-image.entity';
 
 export interface IOrdersRepository {
   insertOrder(params: {

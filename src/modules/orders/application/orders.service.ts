@@ -13,17 +13,17 @@ import { GenerationService } from '../../generation/application/generation.servi
 import { CompositionService } from '../../composition/application/composition.service';
 import { gridConfigs } from '../../grid-configs/domain/data/grid-configs.data';
 import {
-  Order,
-  PaymentStatus,
-  OrderStatus,
-  DeliveryZone,
   rowToOrder,
+  type Order,
+  type PaymentStatus,
+  type OrderStatus,
+  type DeliveryZone,
 } from '../domain/entities/order.entity';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { rowToGeneratedImage } from '../../generation/domain/entities/generated-image.entity';
 import {
-  IOrdersRepository,
   IOrdersRepositoryToken,
+  type IOrdersRepository,
 } from '../domain/orders.repository.interface';
 
 // Delivery fees in centavos

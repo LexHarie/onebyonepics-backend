@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  IQuotasRepository,
   IQuotasRepositoryToken,
+  type IQuotasRepository,
 } from '../domain/quotas.repository.interface';
 
 export interface SessionQuota {

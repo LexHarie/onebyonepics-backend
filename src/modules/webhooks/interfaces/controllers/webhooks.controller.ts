@@ -8,7 +8,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { MayaService, MayaWebhookPayload } from '../../../payments/infrastructure/maya.service';
+import { MayaService, type MayaWebhookPayload } from '../../../payments/infrastructure/maya.service';
 import { OrdersService } from '../../../orders/application/orders.service';
 
 @Controller('webhooks')

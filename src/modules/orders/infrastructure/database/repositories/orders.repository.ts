@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../../../database/infrastructure/database.service';
-import { OrderRow, OrderStatus, PaymentStatus } from '../../../domain/entities/order.entity';
-import { GeneratedImageRow } from '../../../../generation/domain/entities/generated-image.entity';
-import { IOrdersRepository } from '../../../domain/orders.repository.interface';
+import type {
+  OrderRow,
+  OrderStatus,
+  PaymentStatus,
+} from '../../../domain/entities/order.entity';
+import type { GeneratedImageRow } from '../../../../generation/domain/entities/generated-image.entity';
+import type { IOrdersRepository } from '../../../domain/orders.repository.interface';
 
 @Injectable()
 export class OrdersRepository implements IOrdersRepository {

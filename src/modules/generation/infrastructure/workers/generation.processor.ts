@@ -11,8 +11,8 @@ import { rowToUploadedImage } from '../../../images/domain/entities/image.entity
 import { GENERATION_QUEUE } from '../../../queue/queue.module';
 import { RateLimitExceededException } from '../../../rate-limiter/application/rate-limiter.service';
 import {
-  IGenerationRepository,
   IGenerationRepositoryToken,
+  type IGenerationRepository,
 } from '../../domain/generation.repository.interface';
 
 export interface GenerationJobData {

@@ -1,5 +1,5 @@
-import { UploadedImageRow } from '../../images/domain/entities/image.entity';
-import { GeneratedImageRow } from '../../generation/domain/entities/generated-image.entity';
+import type { UploadedImageRow } from '../../images/domain/entities/image.entity';
+import type { GeneratedImageRow } from '../../generation/domain/entities/generated-image.entity';
 
 export interface ICleanupRepository {
   findExpiredUploads(now: Date): Promise<UploadedImageRow[]>;

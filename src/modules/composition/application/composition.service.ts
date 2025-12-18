@@ -4,7 +4,7 @@ import { StorageService } from '../../storage/infrastructure/storage.service';
 import {
   gridConfigs,
   TILE_DIMENSIONS,
-  GridConfig,
+  type GridConfig,
 } from '../../grid-configs/domain/data/grid-configs.data';
 
 // 4R paper size at 300 DPI (4x6 inches)

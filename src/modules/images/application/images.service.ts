@@ -10,10 +10,10 @@ import { randomUUID } from 'crypto';
 import { extname } from 'node:path';
 import type { User } from '@buiducnhat/nest-better-auth';
 import { StorageService } from '../../storage/infrastructure/storage.service';
-import { UploadedImage, rowToUploadedImage } from '../domain/entities/image.entity';
+import { rowToUploadedImage, type UploadedImage } from '../domain/entities/image.entity';
 import {
-  IImagesRepository,
   IImagesRepositoryToken,
+  type IImagesRepository,
 } from '../domain/images.repository.interface';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];

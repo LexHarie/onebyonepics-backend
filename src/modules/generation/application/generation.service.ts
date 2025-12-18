@@ -16,9 +16,9 @@ import { GenAIService } from '../../genai/infrastructure/genai.service';
 import { QuotasService } from '../../quotas/application/quotas.service';
 import { WatermarkService } from '../../watermark/application/watermark.service';
 import {
-  GenerationJob,
-  GenerationJobStatus,
   rowToGenerationJob,
+  type GenerationJob,
+  type GenerationJobStatus,
 } from '../domain/entities/generation-job.entity';
 import { rowToGeneratedImage } from '../domain/entities/generated-image.entity';
 import { rowToUploadedImage } from '../../images/domain/entities/image.entity';
@@ -26,8 +26,8 @@ import { gridConfigs } from '../../grid-configs/domain/data/grid-configs.data';
 import { GENERATION_QUEUE } from '../../queue/queue.module';
 import type { GenerationJobData } from '../infrastructure/workers/generation.processor';
 import {
-  IGenerationRepository,
   IGenerationRepositoryToken,
+  type IGenerationRepository,
 } from '../domain/generation.repository.interface';
 
 @Injectable()

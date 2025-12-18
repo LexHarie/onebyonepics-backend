@@ -1,6 +1,6 @@
-import { GenerationJobRow } from './entities/generation-job.entity';
-import { GeneratedImageRow } from './entities/generated-image.entity';
-import { UploadedImageRow } from '../../images/domain/entities/image.entity';
+import type { GenerationJobRow } from './entities/generation-job.entity';
+import type { GeneratedImageRow } from './entities/generated-image.entity';
+import type { UploadedImageRow } from '../../images/domain/entities/image.entity';
 
 export interface IGenerationRepository {
   createJob(params: {

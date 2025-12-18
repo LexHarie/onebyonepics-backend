@@ -1,4 +1,4 @@
-import { UploadedImageRow } from './entities/image.entity';
+import type { UploadedImageRow } from './entities/image.entity';
 
 export interface IImagesRepository {
   insertUploadedImage(params: {

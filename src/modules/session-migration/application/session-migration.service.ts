@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  ISessionMigrationRepository,
   ISessionMigrationRepositoryToken,
+  type ISessionMigrationRepository,
 } from '../domain/session-migration.repository.interface';
 
 @Injectable()

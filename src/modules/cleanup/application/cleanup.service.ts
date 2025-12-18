@@ -4,8 +4,8 @@ import { StorageService } from '../../storage/infrastructure/storage.service';
 import { rowToUploadedImage } from '../../images/domain/entities/image.entity';
 import { rowToGeneratedImage } from '../../generation/domain/entities/generated-image.entity';
 import {
-  ICleanupRepository,
   ICleanupRepositoryToken,
+  type ICleanupRepository,
 } from '../domain/cleanup.repository.interface';
 
 @Injectable()

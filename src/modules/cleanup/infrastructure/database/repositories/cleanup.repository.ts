@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../../../database/infrastructure/database.service';
-import { UploadedImageRow } from '../../../../images/domain/entities/image.entity';
-import { GeneratedImageRow } from '../../../../generation/domain/entities/generated-image.entity';
-import { ICleanupRepository } from '../../../domain/cleanup.repository.interface';
+import type { UploadedImageRow } from '../../../../images/domain/entities/image.entity';
+import type { GeneratedImageRow } from '../../../../generation/domain/entities/generated-image.entity';
+import type { ICleanupRepository } from '../../../domain/cleanup.repository.interface';
 
 @Injectable()
 export class CleanupRepository implements ICleanupRepository {

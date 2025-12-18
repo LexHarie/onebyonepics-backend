@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../../../database/infrastructure/database.service';
-import { GenerationJobRow } from '../../../domain/entities/generation-job.entity';
-import { GeneratedImageRow } from '../../../domain/entities/generated-image.entity';
-import { UploadedImageRow } from '../../../../images/domain/entities/image.entity';
-import { IGenerationRepository } from '../../../domain/generation.repository.interface';
+import type { GenerationJobRow } from '../../../domain/entities/generation-job.entity';
+import type { GeneratedImageRow } from '../../../domain/entities/generated-image.entity';
+import type { UploadedImageRow } from '../../../../images/domain/entities/image.entity';
+import type { IGenerationRepository } from '../../../domain/generation.repository.interface';
 
 @Injectable()
 export class GenerationRepository implements IGenerationRepository {
