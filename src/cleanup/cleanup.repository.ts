@@ -2,18 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { UploadedImageRow } from '../images/entities/image.entity';
 import { GeneratedImageRow } from '../generation/entities/generated-image.entity';
-
-export const CLEANUP_REPOSITORY = Symbol('CLEANUP_REPOSITORY');
-
-export interface CleanupRepositoryInterface {
-  findExpiredUploads(now: Date): Promise<UploadedImageRow[]>;
-  deleteUploadById(id: string): Promise<void>;
-  findExpiredGenerated(now: Date): Promise<GeneratedImageRow[]>;
-  deleteGeneratedById(id: string): Promise<void>;
-}
+import { ICleanupRepository } from './cleanup.repository.interface';
 
 @Injectable()
-export class CleanupRepository implements CleanupRepositoryInterface {
+export class CleanupRepository implements ICleanupRepository {
   constructor(private readonly db: DatabaseService) {}
 
   async findExpiredUploads(now: Date): Promise<UploadedImageRow[]> {

@@ -3,15 +3,18 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { StorageService } from '../storage/storage.service';
 import { rowToUploadedImage } from '../images/entities/image.entity';
 import { rowToGeneratedImage } from '../generation/entities/generated-image.entity';
-import { CLEANUP_REPOSITORY, CleanupRepositoryInterface } from './cleanup.repository';
+import {
+  ICleanupRepository,
+  ICleanupRepositoryToken,
+} from './cleanup.repository.interface';
 
 @Injectable()
 export class CleanupService {
   private readonly logger = new Logger(CleanupService.name);
 
   constructor(
-    @Inject(CLEANUP_REPOSITORY)
-    private readonly cleanupRepository: CleanupRepositoryInterface,
+    @Inject(ICleanupRepositoryToken)
+    private readonly cleanupRepository: ICleanupRepository,
     private readonly storageService: StorageService,
   ) {}
 
