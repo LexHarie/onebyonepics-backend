@@ -7,8 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { extname } from 'node:path';
+import type { User } from '@buiducnhat/nest-better-auth';
 import { DatabaseService } from '../database/database.service';
-import type { User } from '../users/entities/user.entity';
 import { StorageService } from '../storage/storage.service';
 import { UploadedImage, UploadedImageRow, rowToUploadedImage } from './entities/image.entity';
 
