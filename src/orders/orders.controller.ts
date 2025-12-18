@@ -7,13 +7,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { OptionalAuthGuard } from '../auth/guards/optional-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentUser, type User } from '@buiducnhat/nest-better-auth';
+import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
 import { OrdersService } from './orders.service';
 import { MayaService } from '../payments/maya.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { gridConfigs } from '../grid-configs/data/grid-configs.data';
-import type { User } from '../users/entities/user.entity';
 
 @Controller('orders')
 export class OrdersController {
