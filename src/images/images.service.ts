@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,16 +9,17 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { extname } from 'node:path';
 import type { User } from '@buiducnhat/nest-better-auth';
-import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
-import { UploadedImage, UploadedImageRow, rowToUploadedImage } from './entities/image.entity';
+import { UploadedImage, rowToUploadedImage } from './entities/image.entity';
+import { IMAGES_REPOSITORY, ImagesRepositoryInterface } from './images.repository';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 
 @Injectable()
 export class ImagesService {
   constructor(
-    private readonly db: DatabaseService,
+    @Inject(IMAGES_REPOSITORY)
+    private readonly imagesRepository: ImagesRepositoryInterface,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
   ) {}
@@ -48,19 +50,17 @@ export class ImagesService {
 
     const userId = user?.id ?? null;
 
-    const rows = await this.db.sql<UploadedImageRow[]>`
-      INSERT INTO uploaded_images (
-        user_id, session_id, storage_key,
-        mime_type, file_size, original_filename, expires_at
-      )
-      VALUES (
-        ${userId}, ${sessionId ?? null}, ${key},
-        ${mimeType}, ${file.length}, ${filename ?? null}, ${expiresAt}
-      )
-      RETURNING *
-    `;
+    const row = await this.imagesRepository.insertUploadedImage({
+      userId,
+      sessionId: sessionId ?? null,
+      storageKey: key,
+      mimeType,
+      fileSize: file.length,
+      originalFilename: filename ?? null,
+      expiresAt,
+    });
 
-    return rowToUploadedImage(rows[0]);
+    return rowToUploadedImage(row);
   }
 
   /**
@@ -71,10 +71,8 @@ export class ImagesService {
   }
 
   async findById(id: string): Promise<UploadedImage | null> {
-    const rows = await this.db.sql<UploadedImageRow[]>`
-      SELECT * FROM uploaded_images WHERE id = ${id} LIMIT 1
-    `;
-    return rows.length > 0 ? rowToUploadedImage(rows[0]) : null;
+    const row = await this.imagesRepository.findById(id);
+    return row ? rowToUploadedImage(row) : null;
   }
 
   async getImageForRequester(
@@ -105,7 +103,7 @@ export class ImagesService {
   async deleteImage(id: string, user?: User | null, sessionId?: string) {
     const image = await this.getImageForRequester(id, user, sessionId);
     await this.storageService.deleteObject(image.storageKey);
-    await this.db.sql`DELETE FROM uploaded_images WHERE id = ${id}`;
+    await this.imagesRepository.deleteById(id);
     return { success: true };
   }
 }
