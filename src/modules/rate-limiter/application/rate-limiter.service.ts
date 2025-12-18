@@ -10,7 +10,7 @@ import {
   DEFAULT_TOKEN_ESTIMATE,
   RATE_LIMIT_ERROR_CODES,
   type ModelRateLimitConfig,
-} from './rate-limiter.constants';
+} from '../domain/rate-limiter.constants';
 
 export interface RateLimitStatus {
   model: string;

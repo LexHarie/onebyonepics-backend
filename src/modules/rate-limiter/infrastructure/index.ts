@@ -1,3 +1,3 @@
 export * from './rate-limiter.module';
-export * from './rate-limiter.service';
-export * from './rate-limiter.constants';
+export * from '../application/rate-limiter.service';
+export * from '../domain/rate-limiter.constants';
