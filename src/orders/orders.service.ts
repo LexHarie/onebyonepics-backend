@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import type { User } from '@buiducnhat/nest-better-auth';
 import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
 import { GenerationService } from '../generation/generation.service';
@@ -20,7 +21,6 @@ import {
   rowToOrder,
 } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
-import type { User } from '../users/entities/user.entity';
 import { GeneratedImageRow, rowToGeneratedImage } from '../generation/entities/generated-image.entity';
 
 // Delivery fees in centavos
