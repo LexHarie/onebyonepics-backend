@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { WatermarkService } from './watermark.service';
+import { WatermarkService } from './application/watermark.service';
 
 @Module({
   providers: [WatermarkService],
