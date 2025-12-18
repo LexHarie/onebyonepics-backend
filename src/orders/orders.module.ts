@@ -6,6 +6,7 @@ import { StorageModule } from '../storage/storage.module';
 import { GenerationModule } from '../generation/generation.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { CompositionModule } from '../composition/composition.module';
+import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { CompositionModule } from '../composition/composition.module';
     forwardRef(() => PaymentsModule),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService],
+  providers: [OrdersService, OptionalAuthGuard],
   exports: [OrdersService],
 })
 export class OrdersModule {}
