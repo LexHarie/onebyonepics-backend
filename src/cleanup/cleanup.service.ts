@@ -1,16 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
-import { UploadedImageRow, rowToUploadedImage } from '../images/entities/image.entity';
-import { GeneratedImageRow, rowToGeneratedImage } from '../generation/entities/generated-image.entity';
+import { rowToUploadedImage } from '../images/entities/image.entity';
+import { rowToGeneratedImage } from '../generation/entities/generated-image.entity';
+import { CLEANUP_REPOSITORY, CleanupRepositoryInterface } from './cleanup.repository';
 
 @Injectable()
 export class CleanupService {
   private readonly logger = new Logger(CleanupService.name);
 
   constructor(
-    private readonly db: DatabaseService,
+    @Inject(CLEANUP_REPOSITORY)
+    private readonly cleanupRepository: CleanupRepositoryInterface,
     private readonly storageService: StorageService,
   ) {}
 
@@ -22,15 +23,13 @@ export class CleanupService {
   }
 
   private async cleanupUploads(now: Date) {
-    const expiredRows = await this.db.sql<UploadedImageRow[]>`
-      SELECT * FROM uploaded_images WHERE expires_at < ${now}
-    `;
+    const expiredRows = await this.cleanupRepository.findExpiredUploads(now);
 
     const expired = expiredRows.map(rowToUploadedImage);
 
     for (const upload of expired) {
       await this.storageService.deleteObject(upload.storageKey);
-      await this.db.sql`DELETE FROM uploaded_images WHERE id = ${upload.id}`;
+      await this.cleanupRepository.deleteUploadById(upload.id);
     }
 
     if (expired.length) {
@@ -39,15 +38,13 @@ export class CleanupService {
   }
 
   private async cleanupGenerated(now: Date) {
-    const expiredRows = await this.db.sql<GeneratedImageRow[]>`
-      SELECT * FROM generated_images WHERE expires_at < ${now}
-    `;
+    const expiredRows = await this.cleanupRepository.findExpiredGenerated(now);
 
     const expired = expiredRows.map(rowToGeneratedImage);
 
     for (const item of expired) {
       await this.storageService.deleteObject(item.storageKey);
-      await this.db.sql`DELETE FROM generated_images WHERE id = ${item.id}`;
+      await this.cleanupRepository.deleteGeneratedById(item.id);
     }
 
     if (expired.length) {
