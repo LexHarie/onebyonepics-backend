@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../../database/infrastructure/database.service';
-import { ISessionMigrationRepository } from '../domain/session-migration.repository.interface';
+import { DatabaseService } from '../../../../database/infrastructure/database.service';
+import { ISessionMigrationRepository } from '../../../domain/session-migration.repository.interface';
 
 @Injectable()
 export class SessionMigrationRepository implements ISessionMigrationRepository {

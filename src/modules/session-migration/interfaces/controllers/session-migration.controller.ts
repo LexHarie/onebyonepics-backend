@@ -10,7 +10,7 @@ import {
   CurrentUser,
   type User,
 } from '@buiducnhat/nest-better-auth';
-import { SessionMigrationService } from '../application/session-migration.service';
+import { SessionMigrationService } from '../../application/session-migration.service';
 
 class MigrateSessionDto {
   sessionId!: string;
