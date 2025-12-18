@@ -4,8 +4,8 @@ import { GoogleGenAI } from '@google/genai';
 import {
   RateLimiterService,
   RateLimitExceededException,
-} from '../rate-limiter/rate-limiter.service';
-import { DEFAULT_TOKEN_ESTIMATE } from '../rate-limiter/rate-limiter.constants';
+} from '../../rate-limiter/application/rate-limiter.service';
+import { DEFAULT_TOKEN_ESTIMATE } from '../../rate-limiter/domain/rate-limiter.constants';
 
 const PROMPT = `Transform this photo into a professional ID/passport photo:
 

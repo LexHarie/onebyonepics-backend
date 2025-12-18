@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { GenAIService } from './genai.service';
-import { RateLimiterModule } from '../rate-limiter';
+import { RateLimiterModule } from '../../rate-limiter/infrastructure/rate-limiter.module';
 
 @Module({
   imports: [ConfigModule, RateLimiterModule],
