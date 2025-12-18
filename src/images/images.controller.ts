@@ -10,10 +10,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { OptionalAuthGuard } from '../auth/guards/optional-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentUser, type User } from '@buiducnhat/nest-better-auth';
+import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
 import { ImagesService } from './images.service';
-import type { User } from '../users/entities/user.entity';
 
 @Controller('images')
 export class ImagesController {
