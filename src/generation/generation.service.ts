@@ -22,17 +22,17 @@ import { gridConfigs } from '../grid-configs/data/grid-configs.data';
 import { GENERATION_QUEUE } from '../queue/queue.module';
 import type { GenerationJobData } from './generation.processor';
 import {
-  GENERATION_REPOSITORY,
-  GenerationRepositoryInterface,
-} from './generation.repository';
+  IGenerationRepository,
+  IGenerationRepositoryToken,
+} from './generation.repository.interface';
 
 @Injectable()
 export class GenerationService {
   private readonly logger = new Logger(GenerationService.name);
 
   constructor(
-    @Inject(GENERATION_REPOSITORY)
-    private readonly generationRepository: GenerationRepositoryInterface,
+    @Inject(IGenerationRepositoryToken)
+    private readonly generationRepository: IGenerationRepository,
     private readonly imagesService: ImagesService,
     private readonly storageService: StorageService,
     private readonly genAIService: GenAIService,

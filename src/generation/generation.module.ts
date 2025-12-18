@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { GenerationController } from './generation.controller';
 import { GenerationService } from './generation.service';
 import { GenerationProcessor } from './generation.processor';
-import { GENERATION_REPOSITORY, GenerationRepository } from './generation.repository';
+import { GenerationRepositoryInterfaces } from './index.interface';
 import { ImagesModule } from '../images/images.module';
 import { StorageModule } from '../storage/storage.module';
 import { GenAIModule } from '../genai/genai.module';
@@ -26,7 +26,7 @@ import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
   providers: [
     GenerationService,
     GenerationProcessor,
-    { provide: GENERATION_REPOSITORY, useClass: GenerationRepository },
+    ...GenerationRepositoryInterfaces,
     OptionalAuthGuard,
   ],
   exports: [GenerationService],

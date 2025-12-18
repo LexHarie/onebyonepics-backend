@@ -11,9 +11,9 @@ import { rowToUploadedImage } from '../images/entities/image.entity';
 import { GENERATION_QUEUE } from '../queue/queue.module';
 import { RateLimitExceededException } from '../rate-limiter/rate-limiter.service';
 import {
-  GENERATION_REPOSITORY,
-  GenerationRepositoryInterface,
-} from './generation.repository';
+  IGenerationRepository,
+  IGenerationRepositoryToken,
+} from './generation.repository.interface';
 
 export interface GenerationJobData {
   jobId: string;
@@ -28,8 +28,8 @@ export class GenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(GenerationProcessor.name);
 
   constructor(
-    @Inject(GENERATION_REPOSITORY)
-    private readonly generationRepository: GenerationRepositoryInterface,
+    @Inject(IGenerationRepositoryToken)
+    private readonly generationRepository: IGenerationRepository,
     private readonly storageService: StorageService,
     private readonly genAIService: GenAIService,
     private readonly configService: ConfigService,
