@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { OrdersRepositoryInterfaces } from './index.interface';
 import { DatabaseModule } from '../database/database.module';
 import { StorageModule } from '../storage/storage.module';
 import { GenerationModule } from '../generation/generation.module';
@@ -17,7 +18,11 @@ import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
     forwardRef(() => PaymentsModule),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService, OptionalAuthGuard],
+  providers: [
+    OrdersService,
+    ...OrdersRepositoryInterfaces,
+    OptionalAuthGuard,
+  ],
   exports: [OrdersService],
 })
 export class OrdersModule {}

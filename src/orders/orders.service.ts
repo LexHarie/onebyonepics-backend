@@ -1,27 +1,30 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import type { User } from '@buiducnhat/nest-better-auth';
-import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
 import { GenerationService } from '../generation/generation.service';
 import { CompositionService } from '../composition/composition.service';
 import { gridConfigs } from '../grid-configs/data/grid-configs.data';
 import {
   Order,
-  OrderRow,
   PaymentStatus,
   OrderStatus,
   DeliveryZone,
   rowToOrder,
 } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { GeneratedImageRow, rowToGeneratedImage } from '../generation/entities/generated-image.entity';
+import { rowToGeneratedImage } from '../generation/entities/generated-image.entity';
+import {
+  IOrdersRepository,
+  IOrdersRepositoryToken,
+} from './orders.repository.interface';
 
 // Delivery fees in centavos
 const DELIVERY_FEES: Record<DeliveryZone, number> = {
@@ -38,7 +41,8 @@ export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(
-    private readonly db: DatabaseService,
+    @Inject(IOrdersRepositoryToken)
+    private readonly ordersRepository: IOrdersRepository,
     private readonly storageService: StorageService,
     private readonly generationService: GenerationService,
     private readonly compositionService: CompositionService,
@@ -98,57 +102,52 @@ export class OrdersService {
     const province = isDigitalOnly ? 'Digital' : dto.province;
     const postalCode = isDigitalOnly ? '0000' : dto.postalCode;
 
-    const rows = await this.db.sql<OrderRow[]>`
-      INSERT INTO orders (
-        order_number, user_id, session_id,
-        customer_name, customer_email, customer_phone,
-        street_address, barangay, city, province, postal_code, delivery_zone,
-        grid_config_id, generation_job_id, tile_assignments,
-        product_price, delivery_fee, total_amount,
-        payment_status, order_status
-      )
-      VALUES (
-        ${orderNumber}, ${userId}, ${effectiveSessionId},
-        ${dto.customerName}, ${dto.customerEmail}, ${dto.customerPhone},
-        ${streetAddress}, ${barangay}, ${city}, ${province}, ${postalCode}, ${deliveryZone},
-        ${dto.gridConfigId}, ${dto.generationJobId}, ${JSON.stringify(dto.tileAssignments)},
-        ${productPrice}, ${deliveryFee}, ${totalAmount},
-        'pending', 'pending'
-      )
-      RETURNING *
-    `;
+    const row = await this.ordersRepository.insertOrder({
+      orderNumber,
+      userId,
+      sessionId: effectiveSessionId,
+      customerName: dto.customerName,
+      customerEmail: dto.customerEmail,
+      customerPhone: dto.customerPhone,
+      streetAddress,
+      barangay,
+      city,
+      province,
+      postalCode,
+      deliveryZone,
+      gridConfigId: dto.gridConfigId,
+      generationJobId: dto.generationJobId,
+      tileAssignments: dto.tileAssignments,
+      productPrice,
+      deliveryFee,
+      totalAmount,
+    });
 
-    return rowToOrder(rows[0]);
+    return rowToOrder(row);
   }
 
   /**
    * Find order by ID
    */
   async findById(orderId: string): Promise<Order | null> {
-    const rows = await this.db.sql<OrderRow[]>`
-      SELECT * FROM orders WHERE id = ${orderId} LIMIT 1
-    `;
-    return rows.length > 0 ? rowToOrder(rows[0]) : null;
+    const row = await this.ordersRepository.findById(orderId);
+    return row ? rowToOrder(row) : null;
   }
 
   /**
    * Find order by order number
    */
   async findByOrderNumber(orderNumber: string): Promise<Order | null> {
-    const rows = await this.db.sql<OrderRow[]>`
-      SELECT * FROM orders WHERE order_number = ${orderNumber} LIMIT 1
-    `;
-    return rows.length > 0 ? rowToOrder(rows[0]) : null;
+    const row = await this.ordersRepository.findByOrderNumber(orderNumber);
+    return row ? rowToOrder(row) : null;
   }
 
   /**
    * Find order by Maya checkout ID
    */
   async findByMayaCheckoutId(checkoutId: string): Promise<Order | null> {
-    const rows = await this.db.sql<OrderRow[]>`
-      SELECT * FROM orders WHERE maya_checkout_id = ${checkoutId} LIMIT 1
-    `;
-    return rows.length > 0 ? rowToOrder(rows[0]) : null;
+    const row = await this.ordersRepository.findByMayaCheckoutId(checkoutId);
+    return row ? rowToOrder(row) : null;
   }
 
   /**
@@ -205,18 +204,17 @@ export class OrdersService {
    * Update Maya checkout ID
    */
   async setMayaCheckoutId(orderId: string, checkoutId: string): Promise<Order> {
-    const rows = await this.db.sql<OrderRow[]>`
-      UPDATE orders
-      SET maya_checkout_id = ${checkoutId}, updated_at = ${new Date()}
-      WHERE id = ${orderId}
-      RETURNING *
-    `;
+    const row = await this.ordersRepository.updateMayaCheckoutId(
+      orderId,
+      checkoutId,
+      new Date(),
+    );
 
-    if (rows.length === 0) {
+    if (!row) {
       throw new NotFoundException('Order not found');
     }
 
-    return rowToOrder(rows[0]);
+    return rowToOrder(row);
   }
 
   /**
@@ -227,95 +225,58 @@ export class OrdersService {
     status: PaymentStatus,
     mayaPaymentId?: string,
   ): Promise<Order> {
-    const updates: Record<string, unknown> = {
-      payment_status: status,
-      updated_at: new Date(),
-    };
+    const now = new Date();
+    const paidAt = status === 'paid' ? now : null;
+    const orderStatus = status === 'paid' ? 'processing' : 'pending';
 
-    if (mayaPaymentId) {
-      updates.maya_payment_id = mayaPaymentId;
-    }
+    const row = await this.ordersRepository.updatePaymentStatus({
+      orderId,
+      status,
+      mayaPaymentId: mayaPaymentId ?? null,
+      paidAt,
+      orderStatus,
+      updatedAt: now,
+    });
 
-    if (status === 'paid') {
-      updates.paid_at = new Date();
-      updates.order_status = 'processing';
-    }
-
-    const rows = await this.db.sql<OrderRow[]>`
-      UPDATE orders
-      SET
-        payment_status = ${status},
-        maya_payment_id = ${mayaPaymentId ?? null},
-        paid_at = ${status === 'paid' ? new Date() : null},
-        order_status = ${status === 'paid' ? 'processing' : 'pending'},
-        updated_at = ${new Date()}
-      WHERE id = ${orderId}
-      RETURNING *
-    `;
-
-    if (rows.length === 0) {
+    if (!row) {
       throw new NotFoundException('Order not found');
     }
 
-    return rowToOrder(rows[0]);
+    return rowToOrder(row);
   }
 
   /**
    * Update order status
    */
   async updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
-    const timestampField =
-      status === 'shipped' ? 'shipped_at' :
-      status === 'delivered' ? 'delivered_at' : null;
+    const row = await this.ordersRepository.updateOrderStatus(
+      orderId,
+      status,
+      new Date(),
+    );
 
-    let rows: OrderRow[];
-
-    if (timestampField === 'shipped_at') {
-      rows = await this.db.sql<OrderRow[]>`
-        UPDATE orders
-        SET order_status = ${status}, shipped_at = ${new Date()}, updated_at = ${new Date()}
-        WHERE id = ${orderId}
-        RETURNING *
-      `;
-    } else if (timestampField === 'delivered_at') {
-      rows = await this.db.sql<OrderRow[]>`
-        UPDATE orders
-        SET order_status = ${status}, delivered_at = ${new Date()}, updated_at = ${new Date()}
-        WHERE id = ${orderId}
-        RETURNING *
-      `;
-    } else {
-      rows = await this.db.sql<OrderRow[]>`
-        UPDATE orders
-        SET order_status = ${status}, updated_at = ${new Date()}
-        WHERE id = ${orderId}
-        RETURNING *
-      `;
-    }
-
-    if (rows.length === 0) {
+    if (!row) {
       throw new NotFoundException('Order not found');
     }
 
-    return rowToOrder(rows[0]);
+    return rowToOrder(row);
   }
 
   /**
    * Set composed image key after server-side composition
    */
   async setComposedImageKey(orderId: string, key: string): Promise<Order> {
-    const rows = await this.db.sql<OrderRow[]>`
-      UPDATE orders
-      SET composed_image_key = ${key}, updated_at = ${new Date()}
-      WHERE id = ${orderId}
-      RETURNING *
-    `;
+    const row = await this.ordersRepository.setComposedImageKey(
+      orderId,
+      key,
+      new Date(),
+    );
 
-    if (rows.length === 0) {
+    if (!row) {
       throw new NotFoundException('Order not found');
     }
 
-    return rowToOrder(rows[0]);
+    return rowToOrder(row);
   }
 
   /**
@@ -341,11 +302,7 @@ export class OrdersService {
     }
 
     // Increment download count
-    await this.db.sql`
-      UPDATE orders
-      SET download_count = download_count + 1, updated_at = ${new Date()}
-      WHERE id = ${orderId}
-    `;
+    await this.ordersRepository.incrementDownloadCount(orderId, new Date());
 
     const nextDownloadCount = order.downloadCount + 1;
 
@@ -369,11 +326,10 @@ export class OrdersService {
    * Mark generated images as permanent after payment
    */
   async markImagesPermanent(generationJobId: string): Promise<void> {
-    await this.db.sql`
-      UPDATE generated_images
-      SET is_permanent = true, expires_at = NULL, updated_at = ${new Date()}
-      WHERE generation_job_id = ${generationJobId}
-    `;
+    await this.ordersRepository.markGeneratedImagesPermanent(
+      generationJobId,
+      new Date(),
+    );
   }
 
   /**
@@ -384,23 +340,13 @@ export class OrdersService {
       throw new BadRequestException('User or session required');
     }
 
-    let rows: OrderRow[];
-
     if (user) {
-      rows = await this.db.sql<OrderRow[]>`
-        SELECT * FROM orders
-        WHERE user_id = ${user.id}
-        ORDER BY created_at DESC
-      `;
+      const rows = await this.ordersRepository.findOrdersByUserId(user.id);
+      return rows.map(rowToOrder);
     } else {
-      rows = await this.db.sql<OrderRow[]>`
-        SELECT * FROM orders
-        WHERE session_id = ${sessionId}
-        ORDER BY created_at DESC
-      `;
+      const rows = await this.ordersRepository.findOrdersBySessionId(sessionId as string);
+      return rows.map(rowToOrder);
     }
-
-    return rows.map(rowToOrder);
   }
 
   /**
@@ -420,22 +366,18 @@ export class OrdersService {
     this.logger.log(`Composing image for order ${order.orderNumber}`);
 
     // Get unwatermarked generated images (is_preview = false)
-    const imageRows = await this.db.sql<GeneratedImageRow[]>`
-      SELECT * FROM generated_images
-      WHERE generation_job_id = ${order.generationJobId}
-        AND is_preview = false
-      ORDER BY variation_index ASC
-    `;
+    const imageRows = await this.ordersRepository.findGeneratedImagesByJobId(
+      order.generationJobId,
+      false,
+    );
 
     if (imageRows.length === 0) {
       // Fallback to preview images if unwatermarked not available
       this.logger.warn(`No unwatermarked images found for job ${order.generationJobId}, using preview images`);
-      const previewRows = await this.db.sql<GeneratedImageRow[]>`
-        SELECT * FROM generated_images
-        WHERE generation_job_id = ${order.generationJobId}
-          AND is_preview = true
-        ORDER BY variation_index ASC
-      `;
+      const previewRows = await this.ordersRepository.findGeneratedImagesByJobId(
+        order.generationJobId,
+        true,
+      );
 
       if (previewRows.length === 0) {
         throw new BadRequestException('No generated images found');
