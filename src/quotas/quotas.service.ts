@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  QUOTAS_REPOSITORY,
-  QuotasRepositoryInterface,
-} from './quotas.repository';
+  IQuotasRepository,
+  IQuotasRepositoryToken,
+} from './quotas.repository.interface';
 
 export interface SessionQuota {
   sessionId: string;
@@ -19,8 +19,8 @@ export class QuotasService {
   private readonly DEFAULT_MAX_PREVIEWS = 3;
 
   constructor(
-    @Inject(QUOTAS_REPOSITORY)
-    private readonly quotasRepository: QuotasRepositoryInterface,
+    @Inject(IQuotasRepositoryToken)
+    private readonly quotasRepository: IQuotasRepository,
   ) {}
 
   /**

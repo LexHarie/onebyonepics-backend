@@ -1,38 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-
-export const QUOTAS_REPOSITORY = Symbol('QUOTAS_REPOSITORY');
-
-export interface SessionQuotaRow {
-  id: string;
-  session_id: string;
-  preview_count: number;
-  max_previews: number;
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface QuotasRepositoryInterface {
-  findBySessionId(sessionId: string): Promise<SessionQuotaRow | null>;
-  upsertIncrement(params: {
-    sessionId: string;
-    incrementBy: number;
-    maxPreviews: number;
-  }): Promise<SessionQuotaRow>;
-  upsertReset(params: {
-    sessionId: string;
-    maxPreviews: number;
-  }): Promise<SessionQuotaRow>;
-  upsertIncreaseMax(params: {
-    sessionId: string;
-    additionalPreviews: number;
-    baseMaxPreviews: number;
-  }): Promise<SessionQuotaRow>;
-  deleteBySessionId(sessionId: string): Promise<void>;
-}
+import { IQuotasRepository, SessionQuotaRow } from './quotas.repository.interface';
 
 @Injectable()
-export class QuotasRepository implements QuotasRepositoryInterface {
+export class QuotasRepository implements IQuotasRepository {
   constructor(private readonly db: DatabaseService) {}
 
   async findBySessionId(sessionId: string): Promise<SessionQuotaRow | null> {
