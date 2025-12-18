@@ -1,5 +1,5 @@
 import { ImagesRepository } from './images.repository';
-import { IImagesRepositoryToken } from './images.repository.interface';
+import { IImagesRepositoryToken } from '../domain/images.repository.interface';
 
 export const ImagesRepositoryInterfaces = [
   {

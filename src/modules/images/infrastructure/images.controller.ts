@@ -11,8 +11,8 @@ import {
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { CurrentUser, type User } from '@buiducnhat/nest-better-auth';
-import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
-import { ImagesService } from './images.service';
+import { OptionalAuthGuard } from '../../../common/guards/optional-auth.guard';
+import { ImagesService } from '../application/images.service';
 
 @Controller('images')
 export class ImagesController {

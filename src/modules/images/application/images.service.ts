@@ -9,12 +9,12 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { extname } from 'node:path';
 import type { User } from '@buiducnhat/nest-better-auth';
-import { StorageService } from '../storage/storage.service';
-import { UploadedImage, rowToUploadedImage } from './entities/image.entity';
+import { StorageService } from '../../storage/infrastructure/storage.service';
+import { UploadedImage, rowToUploadedImage } from '../domain/entities/image.entity';
 import {
   IImagesRepository,
   IImagesRepositoryToken,
-} from './images.repository.interface';
+} from '../domain/images.repository.interface';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 
