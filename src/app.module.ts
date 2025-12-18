@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AuthModule as BetterAuthModule } from '@buiducnhat/nest-better-auth';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
-import { UsersModule } from './users/users.module';
-import { AuthModule } from './auth/auth.module';
 import { ImagesModule } from './images/images.module';
 import { GenerationModule } from './generation/generation.module';
 import { GridConfigsModule } from './grid-configs/grid-configs.module';
@@ -16,6 +15,8 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { QuotasModule } from './quotas/quotas.module';
 import { WatermarkModule } from './watermark/watermark.module';
 import { RateLimiterModule } from './rate-limiter';
+import { SessionMigrationModule } from './session-migration/session-migration.module';
+import { auth } from './lib/auth';
 
 @Module({
   imports: [
@@ -25,8 +26,13 @@ import { RateLimiterModule } from './rate-limiter';
     RateLimiterModule,
     StorageModule,
     GenAIModule,
-    UsersModule,
-    AuthModule,
+    // BetterAuth for Google OAuth and session management
+    BetterAuthModule.forRoot({
+      betterAuth: auth,
+      options: {
+        routingProvider: 'fastify',
+      },
+    }),
     ImagesModule,
     GenerationModule,
     GridConfigsModule,
@@ -36,6 +42,7 @@ import { RateLimiterModule } from './rate-limiter';
     WebhooksModule,
     QuotasModule,
     WatermarkModule,
+    SessionMigrationModule,
   ],
 })
 export class AppModule {}
