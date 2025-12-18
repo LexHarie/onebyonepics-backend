@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ImagesController } from './images.controller';
 import { ImagesService } from './images.service';
-import { IMAGES_REPOSITORY, ImagesRepository } from './images.repository';
+import { ImagesRepositoryInterfaces } from './index.interface';
 import { StorageModule } from '../storage/storage.module';
 import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
 
@@ -10,7 +10,7 @@ import { OptionalAuthGuard } from '../common/guards/optional-auth.guard';
   controllers: [ImagesController],
   providers: [
     ImagesService,
-    { provide: IMAGES_REPOSITORY, useClass: ImagesRepository },
+    ...ImagesRepositoryInterfaces,
     OptionalAuthGuard,
   ],
   exports: [ImagesService],

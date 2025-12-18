@@ -1,25 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { UploadedImageRow } from './entities/image.entity';
-
-export const IMAGES_REPOSITORY = Symbol('IMAGES_REPOSITORY');
-
-export interface ImagesRepositoryInterface {
-  insertUploadedImage(params: {
-    userId: string | null;
-    sessionId: string | null;
-    storageKey: string;
-    mimeType: string;
-    fileSize: number;
-    originalFilename: string | null;
-    expiresAt: Date;
-  }): Promise<UploadedImageRow>;
-  findById(id: string): Promise<UploadedImageRow | null>;
-  deleteById(id: string): Promise<void>;
-}
+import { IImagesRepository } from './images.repository.interface';
 
 @Injectable()
-export class ImagesRepository implements ImagesRepositoryInterface {
+export class ImagesRepository implements IImagesRepository {
   constructor(private readonly db: DatabaseService) {}
 
   async insertUploadedImage(params: {

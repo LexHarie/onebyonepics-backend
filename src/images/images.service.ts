@@ -11,15 +11,18 @@ import { extname } from 'node:path';
 import type { User } from '@buiducnhat/nest-better-auth';
 import { StorageService } from '../storage/storage.service';
 import { UploadedImage, rowToUploadedImage } from './entities/image.entity';
-import { IMAGES_REPOSITORY, ImagesRepositoryInterface } from './images.repository';
+import {
+  IImagesRepository,
+  IImagesRepositoryToken,
+} from './images.repository.interface';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
 
 @Injectable()
 export class ImagesService {
   constructor(
-    @Inject(IMAGES_REPOSITORY)
-    private readonly imagesRepository: ImagesRepositoryInterface,
+    @Inject(IImagesRepositoryToken)
+    private readonly imagesRepository: IImagesRepository,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
   ) {}
