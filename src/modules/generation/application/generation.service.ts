@@ -10,21 +10,25 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import type { User } from '@buiducnhat/nest-better-auth';
-import { ImagesService } from '../images/images.service';
-import { StorageService } from '../storage/storage.service';
-import { GenAIService } from '../genai/genai.service';
-import { QuotasService } from '../quotas/quotas.service';
-import { WatermarkService } from '../watermark/watermark.service';
-import { GenerationJob, GenerationJobStatus, rowToGenerationJob } from './entities/generation-job.entity';
-import { rowToGeneratedImage } from './entities/generated-image.entity';
-import { rowToUploadedImage } from '../images/entities/image.entity';
-import { gridConfigs } from '../grid-configs/data/grid-configs.data';
-import { GENERATION_QUEUE } from '../queue/queue.module';
-import type { GenerationJobData } from './generation.processor';
+import { ImagesService } from '../../images/application/images.service';
+import { StorageService } from '../../storage/infrastructure/storage.service';
+import { GenAIService } from '../../genai/infrastructure/genai.service';
+import { QuotasService } from '../../quotas/application/quotas.service';
+import { WatermarkService } from '../../watermark/application/watermark.service';
+import {
+  GenerationJob,
+  GenerationJobStatus,
+  rowToGenerationJob,
+} from '../domain/entities/generation-job.entity';
+import { rowToGeneratedImage } from '../domain/entities/generated-image.entity';
+import { rowToUploadedImage } from '../../images/domain/entities/image.entity';
+import { gridConfigs } from '../../grid-configs/domain/data/grid-configs.data';
+import { GENERATION_QUEUE } from '../../queue/infrastructure/queue.module';
+import type { GenerationJobData } from '../infrastructure/generation.processor';
 import {
   IGenerationRepository,
   IGenerationRepositoryToken,
-} from './generation.repository.interface';
+} from '../domain/generation.repository.interface';
 
 @Injectable()
 export class GenerationService {

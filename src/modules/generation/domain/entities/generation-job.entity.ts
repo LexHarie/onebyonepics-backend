@@ -1,4 +1,4 @@
-import type { UploadedImage } from '../../images/entities/image.entity';
+import type { UploadedImage } from '../../../images/domain/entities/image.entity';
 import type { GeneratedImage } from './generated-image.entity';
 
 export type GenerationJobStatus =

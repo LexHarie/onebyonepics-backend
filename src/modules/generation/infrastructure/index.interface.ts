@@ -1,5 +1,5 @@
 import { GenerationRepository } from './generation.repository';
-import { IGenerationRepositoryToken } from './generation.repository.interface';
+import { IGenerationRepositoryToken } from '../domain/generation.repository.interface';
 
 export const GenerationRepositoryInterfaces = [
   {
