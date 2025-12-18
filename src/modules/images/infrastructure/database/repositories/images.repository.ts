@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../../database/infrastructure/database.service';
-import { UploadedImageRow } from '../domain/entities/image.entity';
-import { IImagesRepository } from '../domain/images.repository.interface';
+import { DatabaseService } from '../../../../database/infrastructure/database.service';
+import { UploadedImageRow } from '../../../domain/entities/image.entity';
+import { IImagesRepository } from '../../../domain/images.repository.interface';
 
 @Injectable()
 export class ImagesRepository implements IImagesRepository {
