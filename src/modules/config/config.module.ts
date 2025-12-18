@@ -9,7 +9,7 @@ import {
   IsUrl,
   validateSync,
 } from 'class-validator';
-import configuration from './configuration';
+import configuration from './infrastructure/configuration';
 
 class EnvironmentVariables {
   @IsOptional()
