@@ -1,11 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  SESSION_MIGRATION_REPOSITORY,
+  SessionMigrationRepositoryInterface,
+} from './session-migration.repository';
 
 @Injectable()
 export class SessionMigrationService {
   private readonly logger = new Logger(SessionMigrationService.name);
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    @Inject(SESSION_MIGRATION_REPOSITORY)
+    private readonly sessionMigrationRepository: SessionMigrationRepositoryInterface,
+  ) {}
 
   /**
    * Migrate all data from an anonymous session to an authenticated user
@@ -17,30 +23,19 @@ export class SessionMigrationService {
     this.logger.log(`Migrating session ${sessionId} to user ${userId}`);
 
     // Migrate generation jobs
-    const jobResult = await this.db.sql`
-      UPDATE generation_jobs
-      SET user_id = ${userId}
-      WHERE session_id = ${sessionId}
-        AND user_id IS NULL
-      RETURNING id
-    `;
-    const migratedJobs = jobResult.length;
+    const migratedJobs = await this.sessionMigrationRepository.migrateGenerationJobs(
+      sessionId,
+      userId,
+    );
 
     // Migrate uploaded images
-    const imageResult = await this.db.sql`
-      UPDATE uploaded_images
-      SET user_id = ${userId}
-      WHERE session_id = ${sessionId}
-        AND user_id IS NULL
-      RETURNING id
-    `;
-    const migratedImages = imageResult.length;
+    const migratedImages = await this.sessionMigrationRepository.migrateUploadedImages(
+      sessionId,
+      userId,
+    );
 
     // Clear session quota (user gets their own quota now)
-    await this.db.sql`
-      DELETE FROM session_quotas
-      WHERE session_id = ${sessionId}
-    `;
+    await this.sessionMigrationRepository.clearSessionQuota(sessionId);
 
     this.logger.log(
       `Migration complete: ${migratedJobs} jobs, ${migratedImages} images migrated`,
