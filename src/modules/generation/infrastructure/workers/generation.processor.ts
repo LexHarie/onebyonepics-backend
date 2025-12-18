@@ -2,18 +2,18 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
-import { StorageService } from '../../storage/infrastructure/storage.service';
-import { GenAIService } from '../../genai/infrastructure/genai.service';
-import { QuotasService } from '../../quotas/application/quotas.service';
-import { WatermarkService } from '../../watermark/application/watermark.service';
-import { rowToGenerationJob } from '../domain/entities/generation-job.entity';
-import { rowToUploadedImage } from '../../images/domain/entities/image.entity';
-import { GENERATION_QUEUE } from '../../queue/infrastructure/queue.module';
-import { RateLimitExceededException } from '../../rate-limiter/application/rate-limiter.service';
+import { StorageService } from '../../../storage/infrastructure/storage.service';
+import { GenAIService } from '../../../genai/infrastructure/genai.service';
+import { QuotasService } from '../../../quotas/application/quotas.service';
+import { WatermarkService } from '../../../watermark/application/watermark.service';
+import { rowToGenerationJob } from '../../domain/entities/generation-job.entity';
+import { rowToUploadedImage } from '../../../images/domain/entities/image.entity';
+import { GENERATION_QUEUE } from '../../../queue/queue.module';
+import { RateLimitExceededException } from '../../../rate-limiter/application/rate-limiter.service';
 import {
   IGenerationRepository,
   IGenerationRepositoryToken,
-} from '../domain/generation.repository.interface';
+} from '../../domain/generation.repository.interface';
 
 export interface GenerationJobData {
   jobId: string;

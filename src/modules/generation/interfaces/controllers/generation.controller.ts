@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser, type User } from '@buiducnhat/nest-better-auth';
-import { OptionalAuthGuard } from '../../../common/guards/optional-auth.guard';
-import { CreateGenerationDto } from '../interfaces/dto/create-generation.dto';
-import { GenerationService } from '../application/generation.service';
+import { OptionalAuthGuard } from '../../../../common/guards/optional-auth.guard';
+import { CreateGenerationDto } from '../../dto/create-generation.dto';
+import { GenerationService } from '../../application/generation.service';
 
 @Controller('generation')
 export class GenerationController {
