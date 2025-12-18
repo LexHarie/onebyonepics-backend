@@ -8,9 +8,10 @@ interface ColumnInfo {
 }
 
 // Expected schema based on migrations
+// Note: Better Auth manages its own tables (user, session, account, verification)
+// which are not validated here as they're managed by Better Auth migrations
 const expectedSchema: Record<string, string[]> = {
-  users: ['id', 'email', 'password_hash', 'name', 'is_verified', 'created_at', 'updated_at'],
-  refresh_tokens: ['id', 'user_id', 'token_hash', 'expires_at', 'created_at', 'revoked_at'],
+  // Application tables (user_id now references Better Auth's user table with TEXT type)
   uploaded_images: ['id', 'user_id', 'session_id', 'storage_key', 'storage_url', 'mime_type', 'file_size', 'original_filename', 'expires_at', 'created_at'],
   generation_jobs: ['id', 'user_id', 'session_id', 'uploaded_image_id', 'grid_config_id', 'variation_count', 'status', 'error_message', 'started_at', 'completed_at', 'created_at'],
   generated_images: ['id', 'generation_job_id', 'variation_index', 'storage_key', 'storage_url', 'mime_type', 'file_size', 'expires_at', 'is_permanent', 'is_preview', 'created_at', 'updated_at'],
