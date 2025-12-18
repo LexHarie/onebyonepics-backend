@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
-import { StorageService } from '../storage/storage.service';
-import { gridConfigs, TILE_DIMENSIONS, GridConfig } from '../grid-configs/data/grid-configs.data';
+import { StorageService } from '../../storage/infrastructure/storage.service';
+import {
+  gridConfigs,
+  TILE_DIMENSIONS,
+  GridConfig,
+} from '../../grid-configs/domain/data/grid-configs.data';
 
 // 4R paper size at 300 DPI (4x6 inches)
 const PAPER_SIZE = { width: 1200, height: 1800 };

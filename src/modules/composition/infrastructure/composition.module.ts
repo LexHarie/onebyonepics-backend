@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { CompositionService } from './composition.service';
-import { StorageModule } from '../storage/storage.module';
+import { CompositionService } from '../application/composition.service';
+import { StorageModule } from '../../storage/infrastructure/storage.module';
 
 @Module({
   imports: [StorageModule],
