@@ -10,6 +10,7 @@ import fastifyCors from '@fastify/cors';
 import fastifyMultipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { auth } from './lib/auth';
 
 async function bootstrap() {
   const adapter = new FastifyAdapter({ logger: true });
@@ -36,6 +37,40 @@ async function bootstrap() {
         ? true
         : corsOrigin.split(',').map((item) => item.trim()),
     credentials: true,
+  });
+
+  // Register Better Auth routes manually for Fastify
+  const fastifyInstance = app.getHttpAdapter().getInstance();
+  fastifyInstance.route({
+    method: ['GET', 'POST'],
+    url: '/api/auth/*',
+    async handler(request: any, reply: any) {
+      const url = new URL(
+        request.url,
+        `http://${request.headers.host}`,
+      );
+
+      const headers = new Headers();
+      Object.entries(request.headers).forEach(([key, value]) => {
+        if (value) headers.append(key, String(value));
+      });
+
+      const req = new Request(url.toString(), {
+        method: request.method,
+        headers,
+        body: request.body ? JSON.stringify(request.body) : undefined,
+      });
+
+      const response = await auth.handler(req);
+
+      reply.status(response.status);
+      response.headers.forEach((value: string, key: string) =>
+        reply.header(key, value),
+      );
+
+      const body = await response.text();
+      reply.send(body || null);
+    },
   });
 
   app.setGlobalPrefix(apiPrefix);
