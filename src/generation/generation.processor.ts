@@ -1,16 +1,19 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
-import { DatabaseService } from '../database/database.service';
 import { StorageService } from '../storage/storage.service';
 import { GenAIService } from '../genai/genai.service';
 import { QuotasService } from '../quotas/quotas.service';
 import { WatermarkService } from '../watermark/watermark.service';
-import { GenerationJobRow, rowToGenerationJob } from './entities/generation-job.entity';
-import { UploadedImageRow, rowToUploadedImage } from '../images/entities/image.entity';
+import { rowToGenerationJob } from './entities/generation-job.entity';
+import { rowToUploadedImage } from '../images/entities/image.entity';
 import { GENERATION_QUEUE } from '../queue/queue.module';
 import { RateLimitExceededException } from '../rate-limiter/rate-limiter.service';
+import {
+  GENERATION_REPOSITORY,
+  GenerationRepositoryInterface,
+} from './generation.repository';
 
 export interface GenerationJobData {
   jobId: string;
@@ -25,7 +28,8 @@ export class GenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(GenerationProcessor.name);
 
   constructor(
-    private readonly db: DatabaseService,
+    @Inject(GENERATION_REPOSITORY)
+    private readonly generationRepository: GenerationRepositoryInterface,
     private readonly storageService: StorageService,
     private readonly genAIService: GenAIService,
     private readonly configService: ConfigService,
@@ -39,48 +43,39 @@ export class GenerationProcessor extends WorkerHost {
     const { jobId } = job.data;
     this.logger.log(`Processing generation job ${jobId} (Bull job ${job.id})`);
 
-    const jobRows = await this.db.sql<GenerationJobRow[]>`
-      SELECT * FROM generation_jobs WHERE id = ${jobId} LIMIT 1
-    `;
-
-    if (jobRows.length === 0) {
+    const jobRow = await this.generationRepository.findJobById(jobId);
+    if (!jobRow) {
       this.logger.warn(`Generation job ${jobId} not found`);
       return;
     }
 
-    const genJob = rowToGenerationJob(jobRows[0]);
+    const genJob = rowToGenerationJob(jobRow);
 
     if (!genJob.uploadedImageId) {
-      await this.db.sql`
-        UPDATE generation_jobs
-        SET status = 'failed', error_message = 'Uploaded image missing'
-        WHERE id = ${jobId}
-      `;
+      await this.generationRepository.updateJobFailed(
+        jobId,
+        'Uploaded image missing',
+      );
       return;
     }
 
     // Get uploaded image
-    const imageRows = await this.db.sql<UploadedImageRow[]>`
-      SELECT * FROM uploaded_images WHERE id = ${genJob.uploadedImageId} LIMIT 1
-    `;
+    const imageRow = await this.generationRepository.findUploadedImageById(
+      genJob.uploadedImageId,
+    );
 
-    if (imageRows.length === 0) {
-      await this.db.sql`
-        UPDATE generation_jobs
-        SET status = 'failed', error_message = 'Uploaded image not found'
-        WHERE id = ${jobId}
-      `;
+    if (!imageRow) {
+      await this.generationRepository.updateJobFailed(
+        jobId,
+        'Uploaded image not found',
+      );
       return;
     }
 
-    const uploadedImage = rowToUploadedImage(imageRows[0]);
+    const uploadedImage = rowToUploadedImage(imageRow);
 
     // Update status to processing
-    await this.db.sql`
-      UPDATE generation_jobs
-      SET status = 'processing', started_at = ${new Date()}
-      WHERE id = ${jobId}
-    `;
+    await this.generationRepository.updateJobProcessing(jobId, new Date());
 
     try {
       const imageBuffer = await this.storageService.getObjectBuffer(
@@ -113,16 +108,16 @@ export class GenerationProcessor extends WorkerHost {
         const unwatermarkedKey = `generated/${genJob.id}/variation-${i + 1}-full.png`;
         await this.storageService.uploadObject(unwatermarkedKey, originalBuffer, mimeType);
 
-        await this.db.sql`
-          INSERT INTO generated_images (
-            generation_job_id, variation_index, storage_key,
-            mime_type, file_size, expires_at, is_permanent, is_preview
-          )
-          VALUES (
-            ${jobId}, ${i + 1}, ${unwatermarkedKey},
-            ${mimeType}, ${originalBuffer.length}, ${expiresAt}, false, false
-          )
-        `;
+        await this.generationRepository.insertGeneratedImage({
+          jobId,
+          variationIndex: i + 1,
+          storageKey: unwatermarkedKey,
+          mimeType,
+          fileSize: originalBuffer.length,
+          expiresAt,
+          isPermanent: false,
+          isPreview: false,
+        });
 
         // Apply watermark for preview version
         const watermarkedBuffer = await this.watermarkService.applyPreviewWatermark(originalBuffer);
@@ -130,16 +125,16 @@ export class GenerationProcessor extends WorkerHost {
         const previewKey = `generated/${genJob.id}/variation-${i + 1}-preview.png`;
         await this.storageService.uploadObject(previewKey, watermarkedBuffer, mimeType);
 
-        await this.db.sql`
-          INSERT INTO generated_images (
-            generation_job_id, variation_index, storage_key,
-            mime_type, file_size, expires_at, is_permanent, is_preview
-          )
-          VALUES (
-            ${jobId}, ${i + 1}, ${previewKey},
-            ${mimeType}, ${watermarkedBuffer.length}, ${expiresAt}, false, true
-          )
-        `;
+        await this.generationRepository.insertGeneratedImage({
+          jobId,
+          variationIndex: i + 1,
+          storageKey: previewKey,
+          mimeType,
+          fileSize: watermarkedBuffer.length,
+          expiresAt,
+          isPermanent: false,
+          isPreview: true,
+        });
 
         // Report progress
         await job.updateProgress(Math.round(((i + 1) / images.length) * 90));
@@ -151,11 +146,7 @@ export class GenerationProcessor extends WorkerHost {
         this.logger.debug(`Incremented quota for session ${genJob.sessionId}`);
       }
 
-      await this.db.sql`
-        UPDATE generation_jobs
-        SET status = 'completed', completed_at = ${new Date()}
-        WHERE id = ${jobId}
-      `;
+      await this.generationRepository.updateJobCompleted(jobId, new Date());
 
       this.logger.log(`Generation job ${jobId} completed successfully`);
     } catch (err) {
@@ -168,11 +159,7 @@ export class GenerationProcessor extends WorkerHost {
         ? `Rate limit exceeded: ${error.message}`
         : error.message;
 
-      await this.db.sql`
-        UPDATE generation_jobs
-        SET status = 'failed', error_message = ${errorMessage}
-        WHERE id = ${jobId}
-      `;
+      await this.generationRepository.updateJobFailed(jobId, errorMessage);
 
       // Re-throw to trigger BullMQ retry (exponential backoff will help with rate limits)
       throw err;

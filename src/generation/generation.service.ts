@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -9,25 +10,29 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import type { User } from '@buiducnhat/nest-better-auth';
-import { DatabaseService } from '../database/database.service';
 import { ImagesService } from '../images/images.service';
 import { StorageService } from '../storage/storage.service';
 import { GenAIService } from '../genai/genai.service';
 import { QuotasService } from '../quotas/quotas.service';
 import { WatermarkService } from '../watermark/watermark.service';
-import { GenerationJob, GenerationJobRow, GenerationJobStatus, rowToGenerationJob } from './entities/generation-job.entity';
-import { GeneratedImage, GeneratedImageRow, rowToGeneratedImage } from './entities/generated-image.entity';
-import { UploadedImageRow, rowToUploadedImage } from '../images/entities/image.entity';
+import { GenerationJob, GenerationJobStatus, rowToGenerationJob } from './entities/generation-job.entity';
+import { rowToGeneratedImage } from './entities/generated-image.entity';
+import { rowToUploadedImage } from '../images/entities/image.entity';
 import { gridConfigs } from '../grid-configs/data/grid-configs.data';
 import { GENERATION_QUEUE } from '../queue/queue.module';
 import type { GenerationJobData } from './generation.processor';
+import {
+  GENERATION_REPOSITORY,
+  GenerationRepositoryInterface,
+} from './generation.repository';
 
 @Injectable()
 export class GenerationService {
   private readonly logger = new Logger(GenerationService.name);
 
   constructor(
-    private readonly db: DatabaseService,
+    @Inject(GENERATION_REPOSITORY)
+    private readonly generationRepository: GenerationRepositoryInterface,
     private readonly imagesService: ImagesService,
     private readonly storageService: StorageService,
     private readonly genAIService: GenAIService,
@@ -76,19 +81,15 @@ export class GenerationService {
 
     const userId = user?.id ?? null;
 
-    const rows = await this.db.sql<GenerationJobRow[]>`
-      INSERT INTO generation_jobs (
-        user_id, session_id, uploaded_image_id, grid_config_id,
-        variation_count, status
-      )
-      VALUES (
-        ${userId}, ${sessionId ?? null}, ${uploadedImageId}, ${gridConfigId},
-        ${variationCount}, 'pending'
-      )
-      RETURNING *
-    `;
+    const row = await this.generationRepository.createJob({
+      userId,
+      sessionId: sessionId ?? null,
+      uploadedImageId,
+      gridConfigId,
+      variationCount,
+    });
 
-    const job = rowToGenerationJob(rows[0]);
+    const job = rowToGenerationJob(row);
 
     // Add job to queue for processing
     await this.generationQueue.add(
@@ -109,13 +110,10 @@ export class GenerationService {
   }
 
   async getStatus(jobId: string, user?: User | null, sessionId?: string) {
-    const rows = await this.db.sql<GenerationJobRow[]>`
-      SELECT * FROM generation_jobs WHERE id = ${jobId} LIMIT 1
-    `;
+    const row = await this.generationRepository.findJobById(jobId);
+    if (!row) throw new NotFoundException('Job not found');
 
-    if (rows.length === 0) throw new NotFoundException('Job not found');
-
-    const job = rowToGenerationJob(rows[0]);
+    const job = rowToGenerationJob(row);
 
     if (!this.canAccess(job, user, sessionId)) {
       throw new ForbiddenException('Access denied');
@@ -135,13 +133,10 @@ export class GenerationService {
     sessionId?: string,
     includeData = false,
   ) {
-    const jobRows = await this.db.sql<GenerationJobRow[]>`
-      SELECT * FROM generation_jobs WHERE id = ${jobId} LIMIT 1
-    `;
+    const jobRow = await this.generationRepository.findJobById(jobId);
+    if (!jobRow) throw new NotFoundException('Job not found');
 
-    if (jobRows.length === 0) throw new NotFoundException('Job not found');
-
-    const job = rowToGenerationJob(jobRows[0]);
+    const job = rowToGenerationJob(jobRow);
 
     if (!this.canAccess(job, user, sessionId)) {
       throw new ForbiddenException('Access denied');
@@ -152,12 +147,10 @@ export class GenerationService {
     }
 
     // Only return preview (watermarked) images to the frontend
-    const generatedRows = await this.db.sql<GeneratedImageRow[]>`
-      SELECT * FROM generated_images
-      WHERE generation_job_id = ${jobId}
-        AND is_preview = true
-      ORDER BY variation_index ASC
-    `;
+    const generatedRows = await this.generationRepository.findGeneratedImagesByJobId(
+      jobId,
+      true,
+    );
 
     const generatedImages = generatedRows.map(rowToGeneratedImage);
 
@@ -193,33 +186,33 @@ export class GenerationService {
       throw new BadRequestException('User or session required');
     }
 
-    let rows: GenerationJobRow[];
-
     if (user) {
-      rows = await this.db.sql<GenerationJobRow[]>`
-        SELECT * FROM generation_jobs
-        WHERE user_id = ${user.id}
-        ORDER BY created_at DESC
-      `;
+      const rows = await this.generationRepository.findJobsByUserId(user.id);
+      return rows.map((row) => {
+        const job = rowToGenerationJob(row);
+        return {
+          id: job.id,
+          gridConfigId: job.gridConfigId,
+          variationCount: job.variationCount,
+          status: job.status,
+          createdAt: job.createdAt,
+          completedAt: job.completedAt,
+        };
+      });
     } else {
-      rows = await this.db.sql<GenerationJobRow[]>`
-        SELECT * FROM generation_jobs
-        WHERE session_id = ${sessionId}
-        ORDER BY created_at DESC
-      `;
+      const rows = await this.generationRepository.findJobsBySessionId(sessionId as string);
+      return rows.map((row) => {
+        const job = rowToGenerationJob(row);
+        return {
+          id: job.id,
+          gridConfigId: job.gridConfigId,
+          variationCount: job.variationCount,
+          status: job.status,
+          createdAt: job.createdAt,
+          completedAt: job.completedAt,
+        };
+      });
     }
-
-    return rows.map((row) => {
-      const job = rowToGenerationJob(row);
-      return {
-        id: job.id,
-        gridConfigId: job.gridConfigId,
-        variationCount: job.variationCount,
-        status: job.status,
-        createdAt: job.createdAt,
-        completedAt: job.completedAt,
-      };
-    });
   }
 
   private mapProgress(status: GenerationJobStatus) {
@@ -245,45 +238,36 @@ export class GenerationService {
   }
 
   private async processJob(jobId: string) {
-    const jobRows = await this.db.sql<GenerationJobRow[]>`
-      SELECT * FROM generation_jobs WHERE id = ${jobId} LIMIT 1
-    `;
+    const jobRow = await this.generationRepository.findJobById(jobId);
+    if (!jobRow) return;
 
-    if (jobRows.length === 0) return;
-
-    const job = rowToGenerationJob(jobRows[0]);
+    const job = rowToGenerationJob(jobRow);
 
     if (!job.uploadedImageId) {
-      await this.db.sql`
-        UPDATE generation_jobs
-        SET status = 'failed', error_message = 'Uploaded image missing'
-        WHERE id = ${jobId}
-      `;
+      await this.generationRepository.updateJobFailed(
+        jobId,
+        'Uploaded image missing',
+      );
       return;
     }
 
     // Get uploaded image
-    const imageRows = await this.db.sql<UploadedImageRow[]>`
-      SELECT * FROM uploaded_images WHERE id = ${job.uploadedImageId} LIMIT 1
-    `;
+    const imageRow = await this.generationRepository.findUploadedImageById(
+      job.uploadedImageId,
+    );
 
-    if (imageRows.length === 0) {
-      await this.db.sql`
-        UPDATE generation_jobs
-        SET status = 'failed', error_message = 'Uploaded image not found'
-        WHERE id = ${jobId}
-      `;
+    if (!imageRow) {
+      await this.generationRepository.updateJobFailed(
+        jobId,
+        'Uploaded image not found',
+      );
       return;
     }
 
-    const uploadedImage = rowToUploadedImage(imageRows[0]);
+    const uploadedImage = rowToUploadedImage(imageRow);
 
     // Update status to processing
-    await this.db.sql`
-      UPDATE generation_jobs
-      SET status = 'processing', started_at = ${new Date()}
-      WHERE id = ${jobId}
-    `;
+    await this.generationRepository.updateJobProcessing(jobId, new Date());
 
     try {
       const imageBuffer = await this.storageService.getObjectBuffer(
@@ -314,16 +298,16 @@ export class GenerationService {
         const key = `generated/${job.id}/variation-${i + 1}.png`;
         await this.storageService.uploadObject(key, buffer, mimeType);
 
-        await this.db.sql`
-          INSERT INTO generated_images (
-            generation_job_id, variation_index, storage_key,
-            mime_type, file_size, expires_at, is_permanent, is_preview
-          )
-          VALUES (
-            ${jobId}, ${i + 1}, ${key},
-            ${mimeType}, ${buffer.length}, ${expiresAt}, false, true
-          )
-        `;
+        await this.generationRepository.insertGeneratedImage({
+          jobId,
+          variationIndex: i + 1,
+          storageKey: key,
+          mimeType,
+          fileSize: buffer.length,
+          expiresAt,
+          isPermanent: false,
+          isPreview: true,
+        });
       }
 
       // Increment quota for anonymous users after successful generation
@@ -332,17 +316,12 @@ export class GenerationService {
         this.logger.debug(`Incremented quota for session ${job.sessionId}`);
       }
 
-      await this.db.sql`
-        UPDATE generation_jobs
-        SET status = 'completed', completed_at = ${new Date()}
-        WHERE id = ${jobId}
-      `;
+      await this.generationRepository.updateJobCompleted(jobId, new Date());
     } catch (err) {
-      await this.db.sql`
-        UPDATE generation_jobs
-        SET status = 'failed', error_message = ${(err as Error).message}
-        WHERE id = ${jobId}
-      `;
+      await this.generationRepository.updateJobFailed(
+        jobId,
+        (err as Error).message,
+      );
     }
   }
 }
