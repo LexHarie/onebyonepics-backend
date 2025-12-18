@@ -1,16 +1,16 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  SESSION_MIGRATION_REPOSITORY,
-  SessionMigrationRepositoryInterface,
-} from './session-migration.repository';
+  ISessionMigrationRepository,
+  ISessionMigrationRepositoryToken,
+} from './session-migration.repository.interface';
 
 @Injectable()
 export class SessionMigrationService {
   private readonly logger = new Logger(SessionMigrationService.name);
 
   constructor(
-    @Inject(SESSION_MIGRATION_REPOSITORY)
-    private readonly sessionMigrationRepository: SessionMigrationRepositoryInterface,
+    @Inject(ISessionMigrationRepositoryToken)
+    private readonly sessionMigrationRepository: ISessionMigrationRepository,
   ) {}
 
   /**

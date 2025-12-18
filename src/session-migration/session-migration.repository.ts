@@ -1,16 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-
-export const SESSION_MIGRATION_REPOSITORY = Symbol('SESSION_MIGRATION_REPOSITORY');
-
-export interface SessionMigrationRepositoryInterface {
-  migrateGenerationJobs(sessionId: string, userId: string): Promise<number>;
-  migrateUploadedImages(sessionId: string, userId: string): Promise<number>;
-  clearSessionQuota(sessionId: string): Promise<void>;
-}
+import { ISessionMigrationRepository } from './session-migration.repository.interface';
 
 @Injectable()
-export class SessionMigrationRepository implements SessionMigrationRepositoryInterface {
+export class SessionMigrationRepository implements ISessionMigrationRepository {
   constructor(private readonly db: DatabaseService) {}
 
   async migrateGenerationJobs(sessionId: string, userId: string): Promise<number> {
