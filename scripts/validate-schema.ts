@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { SQL } from 'bun';
-import { validateSchema } from '../src/database/schema-validator';
+import { validateSchema } from '../src/modules/database/infrastructure/schema-validator';
 
 const databaseUrl = process.env.DATABASE_URL;
 

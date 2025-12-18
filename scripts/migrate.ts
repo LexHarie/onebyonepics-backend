@@ -1,6 +1,9 @@
 #!/usr/bin/env bun
 import { SQL } from 'bun';
-import { runMigrations, getMigrationStatus } from '../src/database/migrations';
+import {
+  runMigrations,
+  getMigrationStatus,
+} from '../src/modules/database/infrastructure/migrations';
 
 const usage = `
 Database Migration CLI

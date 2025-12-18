@@ -1,21 +1,21 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule as BetterAuthModule } from '@buiducnhat/nest-better-auth';
-import { ConfigModule } from './config/config.module';
-import { DatabaseModule } from './database/database.module';
-import { ImagesModule } from './images/images.module';
-import { GenerationModule } from './generation/generation.module';
-import { GridConfigsModule } from './grid-configs/grid-configs.module';
-import { StorageModule } from './storage/storage.module';
-import { GenAIModule } from './genai/genai.module';
-import { CleanupModule } from './cleanup/cleanup.module';
-import { OrdersModule } from './orders/orders.module';
-import { PaymentsModule } from './payments/payments.module';
-import { WebhooksModule } from './webhooks/webhooks.module';
-import { QuotasModule } from './quotas/quotas.module';
-import { WatermarkModule } from './watermark/watermark.module';
-import { RateLimiterModule } from './rate-limiter';
-import { SessionMigrationModule } from './session-migration/session-migration.module';
+import { ConfigModule } from './modules/config/infrastructure/config.module';
+import { DatabaseModule } from './modules/database/infrastructure/database.module';
+import { ImagesModule } from './modules/images/infrastructure/images.module';
+import { GenerationModule } from './modules/generation/infrastructure/generation.module';
+import { GridConfigsModule } from './modules/grid-configs/infrastructure/grid-configs.module';
+import { StorageModule } from './modules/storage/infrastructure/storage.module';
+import { GenAIModule } from './modules/genai/infrastructure/genai.module';
+import { CleanupModule } from './modules/cleanup/infrastructure/cleanup.module';
+import { OrdersModule } from './modules/orders/infrastructure/orders.module';
+import { PaymentsModule } from './modules/payments/infrastructure/payments.module';
+import { WebhooksModule } from './modules/webhooks/infrastructure/webhooks.module';
+import { QuotasModule } from './modules/quotas/infrastructure/quotas.module';
+import { WatermarkModule } from './modules/watermark/infrastructure/watermark.module';
+import { RateLimiterModule } from './modules/rate-limiter/infrastructure/rate-limiter.module';
+import { SessionMigrationModule } from './modules/session-migration/infrastructure/session-migration.module';
 import { auth } from './lib/auth';
 
 @Module({
