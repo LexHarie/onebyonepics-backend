@@ -1,5 +1,5 @@
 import { QuotasRepository } from './quotas.repository';
-import { IQuotasRepositoryToken } from './quotas.repository.interface';
+import { IQuotasRepositoryToken } from '../domain/quotas.repository.interface';
 
 export const QuotasRepositoryInterfaces = [
   {
