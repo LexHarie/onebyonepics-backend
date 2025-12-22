@@ -1,6 +1,11 @@
 import type { MayaPaymentStatus, MayaFundSourceType } from './maya-webhook.types';
 
 /**
+ * Verification status for webhook events
+ */
+export type VerificationStatus = 'pending' | 'verified' | 'failed' | 'skipped';
+
+/**
  * Domain entity for webhook events
  */
 export interface WebhookEvent {
@@ -15,6 +20,14 @@ export interface WebhookEvent {
   processingError: string | null;
   createdAt: Date;
   processedAt: Date | null;
+  // Verification fields
+  verified: boolean;
+  verificationStatus: VerificationStatus;
+  verificationError: string | null;
+  verificationAttemptedAt: Date | null;
+  verifiedAmount: number | null;
+  verifiedPaymentStatus: MayaPaymentStatus | null;
+  verificationAttempts: number;
 }
 
 /**
@@ -32,6 +45,14 @@ export interface WebhookEventRow {
   processing_error: string | null;
   created_at: Date;
   processed_at: Date | null;
+  // Verification fields
+  verified: boolean;
+  verification_status: string;
+  verification_error: string | null;
+  verification_attempted_at: Date | null;
+  verified_amount: number | null;
+  verified_payment_status: string | null;
+  verification_attempts: number;
 }
 
 /**
@@ -50,6 +71,14 @@ export function rowToWebhookEvent(row: WebhookEventRow): WebhookEvent {
     processingError: row.processing_error,
     createdAt: row.created_at,
     processedAt: row.processed_at,
+    // Verification fields
+    verified: row.verified ?? false,
+    verificationStatus: (row.verification_status as VerificationStatus) ?? 'pending',
+    verificationError: row.verification_error,
+    verificationAttemptedAt: row.verification_attempted_at,
+    verifiedAmount: row.verified_amount,
+    verifiedPaymentStatus: row.verified_payment_status as MayaPaymentStatus | null,
+    verificationAttempts: row.verification_attempts ?? 0,
   };
 }
 
