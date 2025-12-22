@@ -71,6 +71,19 @@ export class OrdersRepository implements IOrdersRepository {
     return rows[0] ?? null;
   }
 
+  async findByOrderNumberAndEmail(
+    orderNumber: string,
+    customerEmail: string,
+  ): Promise<OrderRow | null> {
+    const rows = await this.db.sql<OrderRow[]>`
+      SELECT * FROM orders
+      WHERE order_number = ${orderNumber}
+        AND LOWER(customer_email) = LOWER(${customerEmail})
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
   async findByMayaCheckoutId(checkoutId: string): Promise<OrderRow | null> {
     const rows = await this.db.sql<OrderRow[]>`
       SELECT * FROM orders WHERE maya_checkout_id = ${checkoutId} LIMIT 1
