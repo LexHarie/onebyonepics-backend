@@ -1,4 +1,9 @@
 export default () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const defaultFrontendUrl = isProduction
+    ? 'https://onebyonepics.com'
+    : 'http://localhost:5173';
+  const frontendUrl = process.env.FRONTEND_URL || defaultFrontendUrl;
   const primaryModel =
     process.env.GOOGLE_GENAI_PRIMARY_MODEL || 'gemini-3-pro-image-preview';
   const fallbackModel =
@@ -17,7 +22,7 @@ export default () => {
     app: {
       port: parseInt(process.env.PORT || '3001', 10),
       apiPrefix: process.env.API_PREFIX || 'api',
-      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+      frontendUrl,
       backendUrl: process.env.BACKEND_URL || 'http://localhost:3001',
     },
     database: {

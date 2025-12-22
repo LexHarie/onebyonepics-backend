@@ -69,6 +69,17 @@ export class MayaService {
     }
   }
 
+  private buildRedirectUrl(path: string, params: Record<string, string>): string {
+    const base = this.frontendUrl.endsWith('/')
+      ? this.frontendUrl
+      : `${this.frontendUrl}/`;
+    const url = new URL(path.replace(/^\//, ''), base);
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+    return url.toString();
+  }
+
   /**
    * Create a Maya Checkout session
    */
@@ -109,9 +120,17 @@ export class MayaService {
         },
       ],
       redirectUrl: {
-        success: `${this.frontendUrl}/order/success?orderNumber=${params.orderNumber}`,
-        failure: `${this.frontendUrl}/order/failed?orderNumber=${params.orderNumber}&reason=payment_failed`,
-        cancel: `${this.frontendUrl}/order/failed?orderNumber=${params.orderNumber}&reason=cancelled`,
+        success: this.buildRedirectUrl('/order/success', {
+          orderNumber: params.orderNumber,
+        }),
+        failure: this.buildRedirectUrl('/order/failed', {
+          orderNumber: params.orderNumber,
+          reason: 'payment_failed',
+        }),
+        cancel: this.buildRedirectUrl('/order/failed', {
+          orderNumber: params.orderNumber,
+          reason: 'cancelled',
+        }),
       },
       requestReferenceNumber: params.orderNumber,
       metadata: {

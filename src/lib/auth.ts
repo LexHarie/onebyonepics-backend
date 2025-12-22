@@ -19,11 +19,16 @@ export const createAuth = (pool: Pool) =>
       enabled: true,
       requireEmailVerification: false,
     },
-    trustedOrigins: [
-      process.env.FRONTEND_URL || 'http://localhost:5173',
-      'http://localhost:5173',
-      'http://localhost:3000',
-    ],
+    trustedOrigins: Array.from(
+      new Set([
+        process.env.FRONTEND_URL ||
+          (process.env.NODE_ENV === 'production'
+            ? 'https://onebyonepics.com'
+            : 'http://localhost:5173'),
+        'http://localhost:5173',
+        'http://localhost:3000',
+      ])
+    ),
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
       updateAge: 60 * 60 * 24, // 1 day
