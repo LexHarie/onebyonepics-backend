@@ -20,6 +20,10 @@ class EnvironmentVariables {
   @IsString()
   API_PREFIX?: string;
 
+  @IsOptional()
+  @IsString()
+  BACKEND_URL?: string;
+
   @IsString()
   @IsNotEmpty()
   DATABASE_URL!: string;
