@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'crypto';
+import type {
+  CreateWebhookRequest,
+  MayaCaptureResponse,
+  MayaCheckoutWebhookPayload,
+  MayaWebhook,
+} from '../../webhooks/domain/entities/maya-webhook.types';
 
 export interface MayaCheckoutItem {
   name: string;
@@ -36,23 +42,6 @@ export interface MayaCheckoutRequest {
 export interface MayaCheckoutResponse {
   checkoutId: string;
   redirectUrl: string;
-}
-
-export interface MayaWebhookPayload {
-  id: string;
-  isPaid: boolean;
-  status: string;
-  amount: number;
-  currency: string;
-  canVoid: boolean;
-  canRefund: boolean;
-  canCapture: boolean;
-  createdAt: string;
-  updatedAt: string;
-  requestReferenceNumber: string;
-  receiptNumber?: string;
-  paymentScheme?: string;
-  metadata?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -161,7 +150,9 @@ export class MayaService {
   /**
    * Retrieve checkout details by checkout ID
    */
-  async getCheckout(checkoutId: string): Promise<MayaWebhookPayload | null> {
+  async getCheckout(
+    checkoutId: string,
+  ): Promise<MayaCheckoutWebhookPayload | null> {
     try {
       const response = await fetch(`${this.baseUrl}/checkout/v1/checkouts/${checkoutId}`, {
         method: 'GET',
@@ -180,6 +171,153 @@ export class MayaService {
       this.logger.error(`Error fetching Maya checkout: ${(error as Error).message}`);
       return null;
     }
+  }
+
+  /**
+   * Get all registered webhooks
+   * GET /payments/v1/webhooks
+   */
+  async getWebhooks(): Promise<MayaWebhook[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/payments/v1/webhooks`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Basic ${Buffer.from(this.secretKey + ':').toString('base64')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        this.logger.error(`Failed to get webhooks: ${response.status} - ${errorBody}`);
+        return [];
+      }
+
+      return response.json();
+    } catch (error) {
+      this.logger.error(`Error fetching webhooks: ${(error as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Register a webhook URL for an event type
+   * POST /payments/v1/webhooks
+   */
+  async registerWebhook(name: string, callbackUrl: string): Promise<MayaWebhook | null> {
+    try {
+      const body: CreateWebhookRequest = { name, callbackUrl };
+
+      const response = await fetch(`${this.baseUrl}/payments/v1/webhooks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${Buffer.from(this.secretKey + ':').toString('base64')}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        this.logger.error(`Failed to register webhook: ${response.status} - ${errorBody}`);
+        return null;
+      }
+
+      const webhook = await response.json();
+      this.logger.log(`Registered webhook: ${name} -> ${callbackUrl}`);
+      return webhook;
+    } catch (error) {
+      this.logger.error(`Error registering webhook: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Update an existing webhook
+   * PUT /payments/v1/webhooks/{id}
+   */
+  async updateWebhook(id: string, callbackUrl: string): Promise<MayaWebhook | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/payments/v1/webhooks/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${Buffer.from(this.secretKey + ':').toString('base64')}`,
+        },
+        body: JSON.stringify({ callbackUrl }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        this.logger.error(`Failed to update webhook: ${response.status} - ${errorBody}`);
+        return null;
+      }
+
+      const webhook = await response.json();
+      this.logger.log(`Updated webhook ${id} -> ${callbackUrl}`);
+      return webhook;
+    } catch (error) {
+      this.logger.error(`Error updating webhook: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Delete a webhook
+   * DELETE /payments/v1/webhooks/{id}
+   */
+  async deleteWebhook(id: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/payments/v1/webhooks/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Basic ${Buffer.from(this.secretKey + ':').toString('base64')}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        this.logger.error(`Failed to delete webhook: ${response.status} - ${errorBody}`);
+        return false;
+      }
+
+      this.logger.log(`Deleted webhook ${id}`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Error deleting webhook: ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Capture an authorized payment
+   * POST /payments/v1/payments/{paymentId}/capture
+   */
+  async capturePayment(paymentId: string, amount?: number): Promise<MayaCaptureResponse> {
+    const body = amount
+      ? { amount: { value: amount, currency: 'PHP' } }
+      : {};
+
+    const response = await fetch(
+      `${this.baseUrl}/payments/v1/payments/${paymentId}/capture`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Basic ${Buffer.from(this.secretKey + ':').toString('base64')}`,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      this.logger.error(`Failed to capture payment: ${response.status} - ${errorBody}`);
+      throw new Error(`Failed to capture payment: ${response.status}`);
+    }
+
+    const result = await response.json();
+    this.logger.log(`Captured payment ${paymentId}`);
+    return result;
   }
 
   /**
