@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import {
@@ -11,6 +11,7 @@ import {
   RATE_LIMIT_ERROR_CODES,
   type ModelRateLimitConfig,
 } from '../domain/rate-limiter.constants';
+import { RedisService } from '../../redis/redis.service';
 
 export interface RateLimitStatus {
   model: string;
@@ -37,30 +38,46 @@ export class RateLimitExceededException extends Error {
 }
 
 @Injectable()
-export class RateLimiterService implements OnModuleDestroy {
+export class RateLimiterService {
   private readonly logger = new Logger(RateLimiterService.name);
   private readonly redis: Redis;
   private readonly prefix: string;
+  private readonly modelLimits: Record<string, ModelRateLimitConfig>;
+  private readonly primaryModel: string;
+  private readonly fallbackModel: string;
 
-  constructor(private readonly configService: ConfigService) {
-    const redisUrl = this.configService.get<string>('redis.url') || 'redis://localhost:6379';
-    this.redis = new Redis(redisUrl, {
-      maxRetriesPerRequest: 3,
-      retryStrategy: (times) => Math.min(times * 100, 3000),
-    });
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
+  ) {
+    this.redis = this.redisService.client;
     this.prefix = RATE_LIMIT_REDIS_PREFIX;
+    this.primaryModel =
+      this.configService.get<string>('google.primaryModel') || PRIMARY_MODEL;
+    this.fallbackModel =
+      this.configService.get<string>('google.fallbackModel') || FALLBACK_MODEL;
 
-    this.redis.on('error', (err) => {
-      this.logger.error(`Redis connection error: ${err.message}`);
-    });
+    const configuredLimits = this.configService.get<
+      Record<string, ModelRateLimitConfig>
+    >('rateLimit.models');
+    this.modelLimits =
+      configuredLimits && Object.keys(configuredLimits).length
+        ? { ...configuredLimits }
+        : { ...MODEL_RATE_LIMITS };
 
-    this.redis.on('connect', () => {
-      this.logger.log('Redis connected for rate limiting');
-    });
-  }
+    if (!this.modelLimits[this.primaryModel]) {
+      this.modelLimits[this.primaryModel] = MODEL_RATE_LIMITS[PRIMARY_MODEL];
+      this.logger.warn(
+        `Rate limits missing for ${this.primaryModel}, falling back to default limits.`,
+      );
+    }
 
-  async onModuleDestroy() {
-    await this.redis.quit();
+    if (!this.modelLimits[this.fallbackModel]) {
+      this.modelLimits[this.fallbackModel] = MODEL_RATE_LIMITS[FALLBACK_MODEL];
+      this.logger.warn(
+        `Rate limits missing for ${this.fallbackModel}, falling back to default limits.`,
+      );
+    }
   }
 
   /**
@@ -89,7 +106,7 @@ export class RateLimiterService implements OnModuleDestroy {
    * Get current usage for a model
    */
   async getModelStatus(model: string): Promise<RateLimitStatus> {
-    const config = MODEL_RATE_LIMITS[model];
+    const config = this.modelLimits[model];
     if (!config) {
       throw new Error(`Unknown model: ${model}`);
     }
@@ -137,18 +154,26 @@ export class RateLimiterService implements OnModuleDestroy {
    */
   async getAvailableModel(estimatedTokens: number = DEFAULT_TOKEN_ESTIMATE): Promise<AvailableModelResult | null> {
     // Try primary model first
-    const primaryAvailable = await this.canMakeRequest(PRIMARY_MODEL, estimatedTokens);
+    const primaryAvailable = await this.canMakeRequest(
+      this.primaryModel,
+      estimatedTokens,
+    );
     if (primaryAvailable) {
-      return { model: PRIMARY_MODEL, isFallback: false };
+      return { model: this.primaryModel, isFallback: false };
     }
 
-    this.logger.warn(`Primary model ${PRIMARY_MODEL} rate limit reached, trying fallback`);
+    this.logger.warn(
+      `Primary model ${this.primaryModel} rate limit reached, trying fallback`,
+    );
 
     // Try fallback model
-    const fallbackAvailable = await this.canMakeRequest(FALLBACK_MODEL, estimatedTokens);
+    const fallbackAvailable = await this.canMakeRequest(
+      this.fallbackModel,
+      estimatedTokens,
+    );
     if (fallbackAvailable) {
-      this.logger.log(`Using fallback model ${FALLBACK_MODEL}`);
-      return { model: FALLBACK_MODEL, isFallback: true };
+      this.logger.log(`Using fallback model ${this.fallbackModel}`);
+      return { model: this.fallbackModel, isFallback: true };
     }
 
     this.logger.error('All models rate limited');
@@ -194,8 +219,8 @@ export class RateLimiterService implements OnModuleDestroy {
 
     if (!available) {
       // Check which limit is hit for better error message
-      const primaryStatus = await this.getModelStatus(PRIMARY_MODEL);
-      const fallbackStatus = await this.getModelStatus(FALLBACK_MODEL);
+      const primaryStatus = await this.getModelStatus(this.primaryModel);
+      const fallbackStatus = await this.getModelStatus(this.fallbackModel);
 
       if (primaryStatus.rpd.remaining === 0 && fallbackStatus.rpd.remaining === 0) {
         throw new RateLimitExceededException(
@@ -265,13 +290,13 @@ export class RateLimiterService implements OnModuleDestroy {
    * Get rate limit configuration for a model
    */
   getModelConfig(model: string): ModelRateLimitConfig | undefined {
-    return MODEL_RATE_LIMITS[model];
+    return this.modelLimits[model];
   }
 
   /**
    * Get all configured models
    */
   getConfiguredModels(): string[] {
-    return Object.keys(MODEL_RATE_LIMITS);
+    return Object.keys(this.modelLimits);
   }
 }
