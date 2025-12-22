@@ -7,6 +7,7 @@ import {
   TILE_DIMENSIONS,
   type GridConfig,
 } from '../../grid-configs/domain/data/grid-configs.data';
+import { mapWithConcurrency } from '../../../common/utils/concurrency';
 
 // 4R paper size at 300 DPI (4x6 inches)
 const PAPER_SIZE = { width: 1200, height: 1800 };
@@ -65,7 +66,7 @@ export class CompositionService {
     const uniqueIndices = [...new Set(Object.values(params.tileAssignments))];
     const imageBuffers = new Map<number, Buffer>();
 
-    await this.mapWithConcurrency(uniqueIndices, this.maxConcurrency, async (index) => {
+    await mapWithConcurrency(uniqueIndices, this.maxConcurrency, async (index) => {
       const key = params.imageKeys[index];
       if (!key) return;
       try {
@@ -76,7 +77,7 @@ export class CompositionService {
       }
     });
 
-    const compositeResults = await this.mapWithConcurrency<
+    const compositeResults = await mapWithConcurrency<
       TilePosition,
       sharp.OverlayOptions | null
     >(positions, this.maxConcurrency, async (pos) => {
@@ -211,30 +212,5 @@ export class CompositionService {
     this.logger.debug(`Calculated ${positions.length} tile positions`);
 
     return positions;
-  }
-
-  private async mapWithConcurrency<T, R>(
-    items: T[],
-    concurrency: number,
-    mapper: (item: T) => Promise<R>,
-  ): Promise<R[]> {
-    if (items.length === 0) return [];
-
-    const results = new Array<R>(items.length);
-    let nextIndex = 0;
-    const workerCount = Math.min(concurrency, items.length);
-
-    const workers = Array.from({ length: workerCount }, async () => {
-      while (true) {
-        const currentIndex = nextIndex++;
-        if (currentIndex >= items.length) {
-          return;
-        }
-        results[currentIndex] = await mapper(items[currentIndex] as T);
-      }
-    });
-
-    await Promise.all(workers);
-    return results;
   }
 }
