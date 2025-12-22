@@ -185,6 +185,25 @@ export class GenerationService {
     return { jobId: job.id, images };
   }
 
+  async assertJobReadyForOrder(
+    jobId: string,
+    user?: User | null,
+    sessionId?: string,
+  ): Promise<void> {
+    const jobRow = await this.generationRepository.findJobById(jobId);
+    if (!jobRow) throw new NotFoundException('Job not found');
+
+    const job = rowToGenerationJob(jobRow);
+
+    if (!this.canAccess(job, user, sessionId)) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (job.status !== 'completed') {
+      throw new BadRequestException('Job not completed yet');
+    }
+  }
+
   async getHistory(user?: User | null, sessionId?: string) {
     if (!user && !sessionId) {
       throw new BadRequestException('User or session required');

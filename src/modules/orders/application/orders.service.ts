@@ -73,11 +73,10 @@ export class OrdersService {
     }
 
     // Verify generation job exists and user has access
-    await this.generationService.getResult(
+    await this.generationService.assertJobReadyForOrder(
       dto.generationJobId,
       user,
       sessionId || dto.sessionId,
-      false,
     );
 
     const orderNumber = this.generateOrderNumber();
