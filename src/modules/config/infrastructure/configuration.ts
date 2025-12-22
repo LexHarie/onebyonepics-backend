@@ -3,6 +3,15 @@ export default () => {
     process.env.GOOGLE_GENAI_PRIMARY_MODEL || 'gemini-3-pro-image-preview';
   const fallbackModel =
     process.env.GOOGLE_GENAI_FALLBACK_MODEL || 'gemini-2.5-flash-image';
+  const mayaSandbox = process.env.MAYA_SANDBOX !== 'false';
+  const defaultMayaWebhookIps = mayaSandbox
+    ? ['13.229.160.234', '3.1.199.75']
+    : ['18.138.50.235', '3.1.207.200'];
+  const mayaWebhookAllowedIps = process.env.MAYA_WEBHOOK_ALLOWED_IPS
+    ? process.env.MAYA_WEBHOOK_ALLOWED_IPS.split(',')
+        .map((ip) => ip.trim())
+        .filter(Boolean)
+    : defaultMayaWebhookIps;
 
   return {
     app: {
@@ -69,10 +78,11 @@ export default () => {
       ),
     },
     maya: {
-      sandbox: process.env.MAYA_SANDBOX !== 'false',
+      sandbox: mayaSandbox,
       publicKey: process.env.MAYA_PUBLIC_KEY,
       secretKey: process.env.MAYA_SECRET_KEY,
       webhookSecretKey: process.env.MAYA_WEBHOOK_SECRET_KEY,
+      webhookAllowedIps: mayaWebhookAllowedIps,
     },
     redis: {
       url: process.env.REDIS_URL || 'redis://localhost:6379',

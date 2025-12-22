@@ -14,7 +14,7 @@ import { BETTER_AUTH_INSTANCE_TOKEN } from '@buiducnhat/nest-better-auth';
 import type { Auth } from 'better-auth';
 
 async function bootstrap() {
-  const adapter = new FastifyAdapter({ logger: true });
+  const adapter = new FastifyAdapter({ logger: true, trustProxy: true });
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     adapter,

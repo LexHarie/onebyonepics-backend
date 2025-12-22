@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  UseGuards,
   Headers,
   Req,
   Param,
@@ -13,6 +14,7 @@ import type { FastifyRequest } from 'fastify';
 import { MayaService } from '../../../payments/infrastructure/maya.service';
 import { WebhookEventsService } from '../../application/webhook-events.service';
 import type { MayaWebhookPayload } from '../../domain/entities/maya-webhook.types';
+import { MayaWebhookIpGuard } from '../guards/maya-webhook-ip.guard';
 
 @Controller('webhooks')
 export class WebhooksController {
@@ -28,6 +30,7 @@ export class WebhooksController {
    * Maya sends webhooks for various payment events
    */
   @Post('maya')
+  @UseGuards(MayaWebhookIpGuard)
   async handleMayaWebhook(
     @Req() req: FastifyRequest,
     @Headers('x-maya-signature') signature?: string,
