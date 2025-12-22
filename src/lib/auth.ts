@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { admin } from 'better-auth/plugins';
 import type { Pool } from 'pg';
 
 // BetterAuth instance configuration
@@ -14,6 +15,10 @@ export const createAuth = (pool: Pool) =>
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       },
     },
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: false,
+    },
     trustedOrigins: [
       process.env.FRONTEND_URL || 'http://localhost:5173',
       'http://localhost:5173',
@@ -23,6 +28,12 @@ export const createAuth = (pool: Pool) =>
       expiresIn: 60 * 60 * 24 * 7, // 7 days
       updateAge: 60 * 60 * 24, // 1 day
     },
+    plugins: [
+      admin({
+        defaultRole: 'user',
+        adminRoles: ['admin'],
+      }),
+    ],
     advanced: {
       database: {
         generateId: () => crypto.randomUUID(),
