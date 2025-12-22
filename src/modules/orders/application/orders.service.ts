@@ -201,6 +201,32 @@ export class OrdersService {
   }
 
   /**
+   * Guest lookup by order number + email (printed orders only)
+   */
+  async guestLookup(orderNumber: string, customerEmail: string): Promise<Order> {
+    const row = await this.ordersRepository.findByOrderNumberAndEmail(
+      orderNumber,
+      customerEmail.toLowerCase(),
+    );
+
+    if (!row) {
+      throw new NotFoundException(
+        'Order not found. Please verify your order number and email address.',
+      );
+    }
+
+    const order = rowToOrder(row);
+
+    if (order.isDigitalOnly) {
+      throw new ForbiddenException(
+        'Digital orders require account login. Please sign in to access your order.',
+      );
+    }
+
+    return order;
+  }
+
+  /**
    * Update Maya checkout ID
    */
   async setMayaCheckoutId(orderId: string, checkoutId: string): Promise<Order> {
