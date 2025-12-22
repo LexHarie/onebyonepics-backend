@@ -12,6 +12,7 @@ import { OptionalAuthGuard } from '../../../../common/guards/optional-auth.guard
 import { OrdersService } from '../../application/orders.service';
 import { MayaService } from '../../../payments/infrastructure/maya.service';
 import { CreateOrderDto } from '../../dto/create-order.dto';
+import { GuestOrderLookupDto } from '../../dto/guest-lookup.dto';
 import { gridConfigs } from '../../../grid-configs/domain/data/grid-configs.data';
 
 @Controller('orders')
@@ -85,6 +86,31 @@ export class OrdersController {
         error: 'Failed to create payment session. Please try again.',
       };
     }
+  }
+
+  @Post('guest-lookup')
+  async guestOrderLookup(@Body() dto: GuestOrderLookupDto) {
+    const order = await this.ordersService.guestLookup(
+      dto.orderNumber,
+      dto.customerEmail,
+    );
+
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      gridConfigId: order.gridConfigId,
+      deliveryZone: order.deliveryZone,
+      productPrice: order.productPrice,
+      deliveryFee: order.deliveryFee,
+      totalAmount: order.totalAmount,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      createdAt: order.createdAt,
+      paidAt: order.paidAt,
+      shippedAt: order.shippedAt,
+      deliveredAt: order.deliveredAt,
+    };
   }
 
   @Get(['number/:orderNumber', 'by-number/:orderNumber'])
