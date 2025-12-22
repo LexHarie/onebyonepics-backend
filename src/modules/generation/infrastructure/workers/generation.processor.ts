@@ -19,10 +19,15 @@ export interface GenerationJobData {
   jobId: string;
 }
 
-// Concurrency is set to 5 to stay under the 20 RPM limit for primary model
+const WORKER_CONCURRENCY = Math.max(
+  1,
+  parseInt(process.env.GENERATION_WORKER_CONCURRENCY || '5', 10),
+);
+
+// Concurrency is configurable via GENERATION_WORKER_CONCURRENCY
 // With avg 2 API calls per job, 5 concurrent jobs = ~10 RPM (safe margin)
 @Processor(GENERATION_QUEUE, {
-  concurrency: 5,
+  concurrency: WORKER_CONCURRENCY,
 })
 export class GenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(GenerationProcessor.name);
