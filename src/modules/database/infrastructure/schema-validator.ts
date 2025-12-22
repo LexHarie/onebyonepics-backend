@@ -17,6 +17,7 @@ const expectedSchema: Record<string, string[]> = {
   generated_images: ['id', 'generation_job_id', 'variation_index', 'storage_key', 'storage_url', 'mime_type', 'file_size', 'expires_at', 'is_permanent', 'is_preview', 'created_at', 'updated_at'],
   orders: ['id', 'order_number', 'user_id', 'session_id', 'customer_name', 'customer_email', 'customer_phone', 'street_address', 'barangay', 'city', 'province', 'postal_code', 'delivery_zone', 'grid_config_id', 'generation_job_id', 'tile_assignments', 'product_price', 'delivery_fee', 'total_amount', 'payment_status', 'order_status', 'maya_checkout_id', 'maya_payment_id', 'composed_image_key', 'download_count', 'max_downloads', 'paid_at', 'shipped_at', 'delivered_at', 'created_at', 'updated_at'],
   session_quotas: ['id', 'session_id', 'preview_count', 'max_previews', 'created_at', 'updated_at'],
+  webhook_events: ['id', 'event_type', 'maya_payment_id', 'order_number', 'payment_status', 'fund_source_type', 'raw_payload', 'processed', 'processing_error', 'created_at', 'processed_at'],
 };
 
 export async function validateSchema(sql: SQL): Promise<{ valid: boolean; errors: string[] }> {
@@ -53,4 +54,3 @@ export async function validateSchema(sql: SQL): Promise<{ valid: boolean; errors
     errors,
   };
 }
-
