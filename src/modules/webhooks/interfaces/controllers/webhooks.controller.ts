@@ -36,8 +36,11 @@ export class WebhooksController {
 
     this.logger.debug(`Received Maya webhook: ${rawBody.substring(0, 200)}...`);
 
-    // Verify webhook signature in production
-    if (process.env.NODE_ENV === 'production') {
+    // Verify webhook signature in production when configured
+    if (
+      process.env.NODE_ENV === 'production' &&
+      this.mayaService.isWebhookSignatureConfigured()
+    ) {
       if (!signature) {
         this.logger.warn('Missing Maya webhook signature in production');
         throw new ForbiddenException('Missing webhook signature');

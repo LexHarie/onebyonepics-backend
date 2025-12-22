@@ -350,6 +350,13 @@ export class MayaService {
   }
 
   /**
+   * Check if webhook signature verification is configured
+   */
+  isWebhookSignatureConfigured(): boolean {
+    return Boolean(this.webhookSecretKey);
+  }
+
+  /**
    * Check if Maya is properly configured
    */
   isConfigured(): boolean {
