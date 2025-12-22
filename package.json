@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun run src/main.ts",
-    "start:dev": "bun run schema:validate && bun --watch src/main.ts",
+    "start": "NODE_TLS_REJECT_UNAUTHORIZED=0 bun run src/main.ts",
+    "start:dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 bun run schema:validate && NODE_TLS_REJECT_UNAUTHORIZED=0 bun --watch src/main.ts",
     "build": "tsc -p tsconfig.json",
     "lint": "echo \"No lint setup\"",
     "migrate": "bun run scripts/migrate.ts",

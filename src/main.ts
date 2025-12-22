@@ -1,3 +1,7 @@
+// Disable TLS certificate validation for self-signed certs (required for DigitalOcean managed databases)
+// Must be set BEFORE any imports that might load pg/tls modules
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -48,31 +52,45 @@ async function bootstrap() {
     method: ['GET', 'POST'],
     url: '/api/auth/*',
     async handler(request: any, reply: any) {
-      const url = new URL(
-        request.url,
-        `http://${request.headers.host}`,
-      );
+      try {
+        const url = new URL(
+          request.url,
+          `http://${request.headers.host}`,
+        );
 
-      const headers = new Headers();
-      Object.entries(request.headers).forEach(([key, value]) => {
-        if (value) headers.append(key, String(value));
-      });
+        const headers = new Headers();
+        Object.entries(request.headers).forEach(([key, value]) => {
+          if (value) headers.append(key, String(value));
+        });
 
-      const req = new Request(url.toString(), {
-        method: request.method,
-        headers,
-        body: request.body ? JSON.stringify(request.body) : undefined,
-      });
+        const req = new Request(url.toString(), {
+          method: request.method,
+          headers,
+          body: request.body ? JSON.stringify(request.body) : undefined,
+        });
 
-      const response = await auth.handler(req);
+        const response = await auth.handler(req);
 
-      reply.status(response.status);
-      response.headers.forEach((value: string, key: string) =>
-        reply.header(key, value),
-      );
+        reply.status(response.status);
+        response.headers.forEach((value: string, key: string) =>
+          reply.header(key, value),
+        );
 
-      const body = await response.text();
-      reply.send(body || null);
+        const body = await response.text();
+        reply.send(body || null);
+      } catch (error) {
+        console.error('Better Auth error:', {
+          error,
+          url: request.url,
+          method: request.method,
+          body: request.body,
+        });
+        reply.status(500).send({
+          error: 'Authentication error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: process.env.NODE_ENV !== 'production' ? (error instanceof Error ? error.stack : undefined) : undefined,
+        });
+      }
     },
   });
 

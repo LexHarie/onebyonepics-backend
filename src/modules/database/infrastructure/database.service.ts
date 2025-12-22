@@ -25,7 +25,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
     this._sql = new SQL({
       url: databaseUrl,
-      max: 20,
+      max: 18,
       idleTimeout: 30,
       connectionTimeout: 30,
     });
