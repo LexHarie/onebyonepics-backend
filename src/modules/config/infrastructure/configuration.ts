@@ -83,6 +83,12 @@ export default () => {
       secretKey: process.env.MAYA_SECRET_KEY,
       webhookSecretKey: process.env.MAYA_WEBHOOK_SECRET_KEY,
       webhookAllowedIps: mayaWebhookAllowedIps,
+      // Payment verification against Maya API
+      verificationEnabled: process.env.MAYA_VERIFICATION_ENABLED !== 'false',
+      verificationMaxAttempts: parseInt(
+        process.env.MAYA_VERIFICATION_MAX_ATTEMPTS || '5',
+        10,
+      ),
     },
     redis: {
       url: process.env.REDIS_URL || 'redis://localhost:6379',
