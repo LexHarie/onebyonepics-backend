@@ -13,7 +13,13 @@ export class PgPoolService implements OnModuleDestroy {
       throw new Error('DATABASE_URL is not configured');
     }
 
-    this.pool = new Pool({ connectionString: databaseUrl });
+    // Enable SSL with rejectUnauthorized: false for remote databases with self-signed certs
+    const isRemoteDb =
+      !databaseUrl.includes('localhost') && !databaseUrl.includes('127.0.0.1');
+    this.pool = new Pool({
+      connectionString: databaseUrl,
+      ssl: isRemoteDb ? { rejectUnauthorized: false } : undefined,
+    });
   }
 
   get client(): Pool {

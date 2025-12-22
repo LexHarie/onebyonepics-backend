@@ -1,4 +1,7 @@
 #!/usr/bin/env bun
+// Disable TLS certificate validation for self-signed certs (Bun compatibility)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import { Pool } from 'pg';
 import { hashPassword } from 'better-auth/crypto';
 import { createAuth } from '../src/lib/auth';
@@ -19,7 +22,10 @@ if (!adminEmail || !adminPassword) {
 }
 
 const normalizedEmail = adminEmail.trim().toLowerCase();
-const pool = new Pool({ connectionString: databaseUrl });
+
+const pool = new Pool({
+  connectionString: databaseUrl,
+});
 
 try {
   const existing = await pool.query(
