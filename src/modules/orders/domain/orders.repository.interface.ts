@@ -28,6 +28,10 @@ export interface IOrdersRepository {
   }): Promise<OrderRow>;
   findById(orderId: string): Promise<OrderRow | null>;
   findByOrderNumber(orderNumber: string): Promise<OrderRow | null>;
+  findByOrderNumberAndEmail(
+    orderNumber: string,
+    customerEmail: string,
+  ): Promise<OrderRow | null>;
   findByMayaCheckoutId(checkoutId: string): Promise<OrderRow | null>;
   updateMayaCheckoutId(
     orderId: string,
