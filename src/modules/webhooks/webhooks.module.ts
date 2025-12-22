@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { WebhooksController } from './interfaces/controllers/webhooks.controller';
 import { WebhookEventsService } from './application/webhook-events.service';
-import { WebhookInitializerService } from './application/webhook-initializer.service';
+import { WebhookVerificationRetryService } from './application/webhook-verification-retry.service';
 import { WebhookEventsRepositoryInterfaces } from './infrastructure/index.interface';
 import { MayaWebhookIpGuard } from './interfaces/guards/maya-webhook-ip.guard';
 import { PaymentsModule } from '../payments/payments.module';
@@ -13,7 +13,7 @@ import { DatabaseModule } from '../database/database.module';
   controllers: [WebhooksController],
   providers: [
     WebhookEventsService,
-    WebhookInitializerService,
+    WebhookVerificationRetryService,
     MayaWebhookIpGuard,
     ...WebhookEventsRepositoryInterfaces,
   ],
