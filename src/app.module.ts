@@ -16,7 +16,8 @@ import { QuotasModule } from './modules/quotas/quotas.module';
 import { WatermarkModule } from './modules/watermark/watermark.module';
 import { RateLimiterModule } from './modules/rate-limiter/rate-limiter.module';
 import { SessionMigrationModule } from './modules/session-migration/session-migration.module';
-import { auth } from './lib/auth';
+import { createAuth } from './lib/auth';
+import { PgPoolService } from './modules/database/infrastructure/pg-pool.service';
 
 @Module({
   imports: [
@@ -27,11 +28,15 @@ import { auth } from './lib/auth';
     StorageModule,
     GenAIModule,
     // BetterAuth for Google OAuth and session management
-    BetterAuthModule.forRoot({
-      betterAuth: auth,
-      options: {
-        routingProvider: 'fastify',
-      },
+    BetterAuthModule.forRootAsync({
+      imports: [DatabaseModule],
+      inject: [PgPoolService],
+      useFactory: (pgPoolService: PgPoolService) => ({
+        betterAuth: createAuth(pgPoolService.client),
+        options: {
+          routingProvider: 'fastify',
+        },
+      }),
     }),
     ImagesModule,
     GenerationModule,

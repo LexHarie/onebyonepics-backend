@@ -10,7 +10,8 @@ import fastifyCors from '@fastify/cors';
 import fastifyMultipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { auth } from './lib/auth';
+import { BETTER_AUTH_INSTANCE_TOKEN } from '@buiducnhat/nest-better-auth';
+import type { Auth } from 'better-auth';
 
 async function bootstrap() {
   const adapter = new FastifyAdapter({ logger: true });
@@ -18,6 +19,7 @@ async function bootstrap() {
     AppModule,
     adapter,
   );
+  app.enableShutdownHooks();
 
   const configService = app.get(ConfigService);
   const apiPrefix = configService.get<string>('app.apiPrefix') || 'api';
@@ -41,6 +43,7 @@ async function bootstrap() {
 
   // Register Better Auth routes manually for Fastify
   const fastifyInstance = app.getHttpAdapter().getInstance();
+  const auth = app.get<Auth>(BETTER_AUTH_INSTANCE_TOKEN);
   fastifyInstance.route({
     method: ['GET', 'POST'],
     url: '/api/auth/*',
