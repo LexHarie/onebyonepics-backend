@@ -48,6 +48,11 @@ jobs:
       MAYA_PUBLIC_KEY: ${{ secrets.MAYA_PUBLIC_KEY }}
       MAYA_SECRET_KEY: ${{ secrets.MAYA_SECRET_KEY }}
       MAYA_WEBHOOK_SECRET_KEY: ${{ secrets.MAYA_WEBHOOK_SECRET_KEY }}
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      # Better Auth
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
 
     steps:
       - name: Checkout repository
@@ -102,6 +107,9 @@ jobs:
           MAYA_PUBLIC_KEY=${MAYA_PUBLIC_KEY}
           MAYA_SECRET_KEY=${MAYA_SECRET_KEY}
           MAYA_WEBHOOK_SECRET_KEY=${MAYA_WEBHOOK_SECRET_KEY}
+          GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+          GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+          BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
           EOF
           # Remove leading whitespace from each line
           sed -i 's/^[[:space:]]*//' deploy.env
