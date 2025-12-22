@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 import { StorageService } from '../../storage/infrastructure/storage.service';
 import {
@@ -9,6 +10,7 @@ import {
 
 // 4R paper size at 300 DPI (4x6 inches)
 const PAPER_SIZE = { width: 1200, height: 1800 };
+const DEFAULT_COMPOSITION_CONCURRENCY = 4;
 
 type TileSize = keyof typeof TILE_DIMENSIONS;
 
@@ -24,8 +26,18 @@ interface TilePosition {
 @Injectable()
 export class CompositionService {
   private readonly logger = new Logger(CompositionService.name);
+  private readonly maxConcurrency: number;
 
-  constructor(private readonly storageService: StorageService) {}
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly configService: ConfigService,
+  ) {
+    const configured = this.configService.get<number>('composition.maxConcurrency');
+    this.maxConcurrency = Math.max(
+      1,
+      configured ?? DEFAULT_COMPOSITION_CONCURRENCY,
+    );
+  }
 
   /**
    * Compose a 4R grid image from generated images
@@ -53,49 +65,57 @@ export class CompositionService {
     const uniqueIndices = [...new Set(Object.values(params.tileAssignments))];
     const imageBuffers = new Map<number, Buffer>();
 
-    for (const index of uniqueIndices) {
+    await this.mapWithConcurrency(uniqueIndices, this.maxConcurrency, async (index) => {
       const key = params.imageKeys[index];
-      if (key) {
-        try {
-          const buffer = await this.storageService.getObjectBuffer(key);
-          imageBuffers.set(index, buffer);
-        } catch (error) {
-          this.logger.error(`Failed to load image ${key}: ${(error as Error).message}`);
-        }
+      if (!key) return;
+      try {
+        const buffer = await this.storageService.getObjectBuffer(key);
+        imageBuffers.set(index, buffer);
+      } catch (error) {
+        this.logger.error(`Failed to load image ${key}: ${(error as Error).message}`);
       }
-    }
+    });
+
+    const compositeResults = await this.mapWithConcurrency<
+      TilePosition,
+      sharp.OverlayOptions | null
+    >(positions, this.maxConcurrency, async (pos) => {
+        const imageIndex = params.tileAssignments[pos.index];
+        if (imageIndex === undefined) {
+          this.logger.debug(`No image assigned to tile ${pos.index}`);
+          return null;
+        }
+
+        const buffer = imageBuffers.get(imageIndex);
+        if (!buffer) {
+          this.logger.warn(`Image buffer not found for index ${imageIndex}`);
+          return null;
+        }
+
+        try {
+          // Resize image to fit tile with center crop
+          const resizedBuffer = await sharp(buffer)
+            .resize(pos.width, pos.height, { fit: 'cover', position: 'center' })
+            .toBuffer();
+
+          const overlay: sharp.OverlayOptions = {
+            input: resizedBuffer,
+            left: pos.x,
+            top: pos.y,
+          };
+          return overlay;
+        } catch (error) {
+          this.logger.error(
+            `Failed to resize image for tile ${pos.index}: ${(error as Error).message}`,
+          );
+          return null;
+        }
+      });
 
     // Create composite operations
-    const compositeOps: sharp.OverlayOptions[] = [];
-
-    for (const pos of positions) {
-      const imageIndex = params.tileAssignments[pos.index];
-      if (imageIndex === undefined) {
-        this.logger.debug(`No image assigned to tile ${pos.index}`);
-        continue;
-      }
-
-      const buffer = imageBuffers.get(imageIndex);
-      if (!buffer) {
-        this.logger.warn(`Image buffer not found for index ${imageIndex}`);
-        continue;
-      }
-
-      try {
-        // Resize image to fit tile with center crop
-        const resizedBuffer = await sharp(buffer)
-          .resize(pos.width, pos.height, { fit: 'cover', position: 'center' })
-          .toBuffer();
-
-        compositeOps.push({
-          input: resizedBuffer,
-          left: pos.x,
-          top: pos.y,
-        });
-      } catch (error) {
-        this.logger.error(`Failed to resize image for tile ${pos.index}: ${(error as Error).message}`);
-      }
-    }
+    const compositeOps = compositeResults.filter(
+      (op): op is sharp.OverlayOptions => Boolean(op),
+    );
 
     // Create white background and composite all tiles
     const result = await sharp({
@@ -191,5 +211,30 @@ export class CompositionService {
     this.logger.debug(`Calculated ${positions.length} tile positions`);
 
     return positions;
+  }
+
+  private async mapWithConcurrency<T, R>(
+    items: T[],
+    concurrency: number,
+    mapper: (item: T) => Promise<R>,
+  ): Promise<R[]> {
+    if (items.length === 0) return [];
+
+    const results = new Array<R>(items.length);
+    let nextIndex = 0;
+    const workerCount = Math.min(concurrency, items.length);
+
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const currentIndex = nextIndex++;
+        if (currentIndex >= items.length) {
+          return;
+        }
+        results[currentIndex] = await mapper(items[currentIndex] as T);
+      }
+    });
+
+    await Promise.all(workers);
+    return results;
   }
 }
