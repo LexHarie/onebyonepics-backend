@@ -33,6 +33,36 @@ export interface IWebhookEventsRepository {
    * Find unprocessed webhook events (for retry)
    */
   findUnprocessed(limit?: number): Promise<WebhookEvent[]>;
+
+  /**
+   * Mark webhook as verified with Maya API data
+   */
+  markVerified(
+    id: string,
+    verifiedAmount: number,
+    verifiedPaymentStatus: string,
+  ): Promise<void>;
+
+  /**
+   * Mark webhook verification as failed
+   */
+  markVerificationFailed(id: string, error: string): Promise<void>;
+
+  /**
+   * Mark webhook verification as skipped (for non-success statuses)
+   */
+  markVerificationSkipped(id: string, reason: string): Promise<void>;
+
+  /**
+   * Find pending verification webhooks (for retry job)
+   * Only returns webhooks with less than maxAttempts
+   */
+  findPendingVerification(limit?: number, maxAttempts?: number): Promise<WebhookEvent[]>;
+
+  /**
+   * Increment verification attempts counter
+   */
+  incrementVerificationAttempts(id: string): Promise<void>;
 }
 
 export const IWebhookEventsRepositoryToken = Symbol('IWebhookEventsRepository');
