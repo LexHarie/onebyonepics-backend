@@ -4,6 +4,10 @@ import { StorageService } from '../../storage/infrastructure/storage.service';
 import { rowToUploadedImage } from '../../images/domain/entities/image.entity';
 import { rowToGeneratedImage } from '../../generation/domain/entities/generated-image.entity';
 import {
+  logFailedResults,
+  processInBatchesSettled,
+} from '../../../common/utils/concurrency';
+import {
   ICleanupRepositoryToken,
   type ICleanupRepository,
 } from '../domain/cleanup.repository.interface';
@@ -30,13 +34,20 @@ export class CleanupService {
 
     const expired = expiredRows.map(rowToUploadedImage);
 
-    for (const upload of expired) {
-      await this.storageService.deleteObject(upload.storageKey);
-      await this.cleanupRepository.deleteUploadById(upload.id);
+    if (!expired.length) {
+      return;
     }
 
-    if (expired.length) {
-      this.logger.log(`Cleaned ${expired.length} expired uploads`);
+    const results = await processInBatchesSettled(expired, async (upload) => {
+      await this.storageService.deleteObject(upload.storageKey);
+      await this.cleanupRepository.deleteUploadById(upload.id);
+    });
+
+    logFailedResults(results, 'cleanupUploads', this.logger);
+
+    const successful = results.filter((result) => result.status === 'fulfilled').length;
+    if (successful > 0) {
+      this.logger.log(`Cleaned ${successful} expired uploads`);
     }
   }
 
@@ -45,13 +56,20 @@ export class CleanupService {
 
     const expired = expiredRows.map(rowToGeneratedImage);
 
-    for (const item of expired) {
-      await this.storageService.deleteObject(item.storageKey);
-      await this.cleanupRepository.deleteGeneratedById(item.id);
+    if (!expired.length) {
+      return;
     }
 
-    if (expired.length) {
-      this.logger.log(`Cleaned ${expired.length} generated images`);
+    const results = await processInBatchesSettled(expired, async (item) => {
+      await this.storageService.deleteObject(item.storageKey);
+      await this.cleanupRepository.deleteGeneratedById(item.id);
+    });
+
+    logFailedResults(results, 'cleanupGenerated', this.logger);
+
+    const successful = results.filter((result) => result.status === 'fulfilled').length;
+    if (successful > 0) {
+      this.logger.log(`Cleaned ${successful} generated images`);
     }
   }
 }
