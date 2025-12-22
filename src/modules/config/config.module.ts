@@ -48,6 +48,14 @@ class EnvironmentVariables {
   @IsString()
   GOOGLE_GENAI_MODEL?: string;
 
+  @IsOptional()
+  @IsString()
+  GOOGLE_GENAI_PRIMARY_MODEL?: string;
+
+  @IsOptional()
+  @IsString()
+  GOOGLE_GENAI_FALLBACK_MODEL?: string;
+
   @IsString()
   @IsNotEmpty()
   DO_SPACES_KEY!: string;
@@ -79,6 +87,14 @@ class EnvironmentVariables {
   @IsOptional()
   @IsNumber()
   CLEANUP_GENERATED_IMAGES_DAYS?: number;
+
+  @IsOptional()
+  @IsNumber()
+  GENERATION_WORKER_CONCURRENCY?: number;
+
+  @IsOptional()
+  @IsNumber()
+  COMPOSITION_CONCURRENCY?: number;
 }
 
 function validate(config: Record<string, unknown>) {
