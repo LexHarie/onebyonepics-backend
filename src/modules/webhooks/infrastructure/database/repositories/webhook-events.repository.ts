@@ -126,11 +126,15 @@ export class WebhookEventsRepository implements IWebhookEventsRepository {
     limit = 50,
     maxAttempts = 5,
   ): Promise<WebhookEvent[]> {
+    // Include both 'pending' and 'failed' verifications for retry
+    // This handles timing issues where Maya API returns stale status initially
     const rows = await this.db.sql<WebhookEventRow[]>`
       SELECT * FROM webhook_events
-      WHERE verification_status = 'pending'
+      WHERE verification_status IN ('pending', 'failed')
         AND verification_attempts < ${maxAttempts}
+        AND processed = TRUE
         AND created_at > NOW() - INTERVAL '24 hours'
+        AND payment_status IN ('PAYMENT_SUCCESS', 'AUTHORIZED')
       ORDER BY created_at ASC
       LIMIT ${limit}
     `;

@@ -83,4 +83,24 @@ export class AdminOrdersController {
   ) {
     return this.adminOrdersService.resendOrderEmail(id, user.id, req.ip || null);
   }
+
+  /**
+   * Verify payment with Maya API and process the order if verified.
+   * Use this for orders stuck in pending state despite having a successful webhook.
+   * Optionally force-process without verification (use with caution).
+   */
+  @Post(':id/verify-and-process')
+  async verifyAndProcessPayment(
+    @Param('id') id: string,
+    @Body() body: { force?: boolean },
+    @CurrentUser() user: User,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.adminOrdersService.verifyAndProcessPayment(
+      id,
+      body.force ?? false,
+      user.id,
+      req.ip || null,
+    );
+  }
 }

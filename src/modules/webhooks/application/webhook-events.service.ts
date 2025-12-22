@@ -360,8 +360,24 @@ export class WebhookEventsService {
       }
 
       // Extract verified data from Maya API response
-      const verifiedStatus = mayaCheckout.paymentStatus;
-      const verifiedAmountPhp = Number(mayaCheckout.totalAmount.value);
+      // Maya API can return different formats:
+      // - Checkout endpoint: { paymentStatus, totalAmount: { value } }
+      // - Payment endpoint: { status, amount (string in PHP) }
+      const verifiedStatus = mayaCheckout.paymentStatus || (mayaCheckout as any).status;
+
+      // Handle both amount formats
+      let verifiedAmountPhp: number;
+      if (mayaCheckout.totalAmount?.value !== undefined) {
+        verifiedAmountPhp = Number(mayaCheckout.totalAmount.value);
+      } else if ((mayaCheckout as any).amount !== undefined) {
+        verifiedAmountPhp = Number((mayaCheckout as any).amount);
+      } else {
+        this.logger.warn(
+          `Could not extract amount from Maya API response for ${order.orderNumber}`,
+        );
+        verifiedAmountPhp = 0;
+      }
+
       const verifiedAmountCentavos = Math.round(verifiedAmountPhp * 100);
 
       this.logger.debug(
@@ -369,8 +385,14 @@ export class WebhookEventsService {
           `status=${verifiedStatus}, amount=${verifiedAmountPhp} PHP (${verifiedAmountCentavos} centavos)`,
       );
 
-      // Verify payment status matches
-      const statusMatch = verifiedStatus === webhookStatus;
+      // Verify payment status matches (with equivalence for success statuses)
+      // Maya may report AUTHORIZED or PAYMENT_SUCCESS interchangeably for successful payments
+      const successStatuses: MayaPaymentStatus[] = ['PAYMENT_SUCCESS', 'AUTHORIZED'];
+      const isWebhookSuccess = successStatuses.includes(webhookStatus);
+      const isApiSuccess = successStatuses.includes(verifiedStatus);
+
+      // Status matches if: exact match OR both indicate success
+      const statusMatch = verifiedStatus === webhookStatus || (isWebhookSuccess && isApiSuccess);
       if (!statusMatch) {
         this.logger.warn(
           `Payment status mismatch for ${order.orderNumber}: ` +

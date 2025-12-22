@@ -1,6 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { QueueModule } from '../queue/queue.module';
+import { OrdersModule } from '../orders/orders.module';
+import { PaymentsModule } from '../payments/payments.module';
+import { WebhooksModule } from '../webhooks/webhooks.module';
 import { AdminRepository } from './infrastructure/repositories/admin.repository';
 import { AdminDashboardService } from './application/admin-dashboard.service';
 import { AdminOrdersService } from './application/admin-orders.service';
@@ -17,7 +20,13 @@ import { AdminSystemController } from './interfaces/controllers/admin-system.con
 import { AdminGuard } from './interfaces/guards/admin.guard';
 
 @Module({
-  imports: [DatabaseModule, QueueModule],
+  imports: [
+    DatabaseModule,
+    QueueModule,
+    forwardRef(() => OrdersModule),
+    forwardRef(() => PaymentsModule),
+    forwardRef(() => WebhooksModule),
+  ],
   controllers: [
     AdminDashboardController,
     AdminOrdersController,
