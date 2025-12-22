@@ -5,6 +5,7 @@ import { addGeneratedImagesColumns } from './003_add_generated_images_columns';
 import { fixGeneratedImagesStorageUrl } from './004_fix_generated_images_storage_url';
 import { addStorageUrlColumns } from './005_add_storage_url_columns';
 import { removeLegacyUsersTable } from './006_remove_legacy_users_table';
+import { migration007AddWebhookEvents } from './007_add_webhook_events';
 
 // Export all migrations in order
 // Add new migrations to this array as they are created
@@ -15,6 +16,7 @@ export const migrations: Migration[] = [
   fixGeneratedImagesStorageUrl,
   addStorageUrlColumns,
   removeLegacyUsersTable,
+  migration007AddWebhookEvents,
 ];
 
 export type { Migration } from './migration.interface';
