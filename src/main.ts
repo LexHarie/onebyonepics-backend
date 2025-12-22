@@ -53,10 +53,15 @@ async function bootstrap() {
     url: '/api/auth/*',
     async handler(request: any, reply: any) {
       try {
-        const url = new URL(
-          request.url,
-          `http://${request.headers.host}`,
-        );
+        const forwardedProto = request.headers['x-forwarded-proto'];
+        const forwardedHost = request.headers['x-forwarded-host'];
+        const protocol = Array.isArray(forwardedProto)
+          ? forwardedProto[0]
+          : forwardedProto?.split(',')[0] || request.protocol || 'http';
+        const host = Array.isArray(forwardedHost)
+          ? forwardedHost[0]
+          : forwardedHost?.split(',')[0] || request.headers.host || 'localhost';
+        const url = new URL(request.url, `${protocol}://${host}`);
 
         const headers = new Headers();
         Object.entries(request.headers).forEach(([key, value]) => {
