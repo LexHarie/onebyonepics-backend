@@ -81,4 +81,67 @@ export class WebhookEventsRepository implements IWebhookEventsRepository {
     `;
     return rows.map(rowToWebhookEvent);
   }
+
+  async markVerified(
+    id: string,
+    verifiedAmount: number,
+    verifiedPaymentStatus: string,
+  ): Promise<void> {
+    await this.db.sql`
+      UPDATE webhook_events
+      SET
+        verified = TRUE,
+        verification_status = 'verified',
+        verification_attempted_at = NOW(),
+        verified_amount = ${verifiedAmount},
+        verified_payment_status = ${verifiedPaymentStatus}
+      WHERE id = ${id}
+    `;
+  }
+
+  async markVerificationFailed(id: string, error: string): Promise<void> {
+    await this.db.sql`
+      UPDATE webhook_events
+      SET
+        verification_status = 'failed',
+        verification_error = ${error},
+        verification_attempted_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+
+  async markVerificationSkipped(id: string, reason: string): Promise<void> {
+    await this.db.sql`
+      UPDATE webhook_events
+      SET
+        verified = TRUE,
+        verification_status = 'skipped',
+        verification_error = ${reason},
+        verification_attempted_at = NOW()
+      WHERE id = ${id}
+    `;
+  }
+
+  async findPendingVerification(
+    limit = 50,
+    maxAttempts = 5,
+  ): Promise<WebhookEvent[]> {
+    const rows = await this.db.sql<WebhookEventRow[]>`
+      SELECT * FROM webhook_events
+      WHERE verification_status = 'pending'
+        AND verification_attempts < ${maxAttempts}
+        AND created_at > NOW() - INTERVAL '24 hours'
+      ORDER BY created_at ASC
+      LIMIT ${limit}
+    `;
+    return rows.map(rowToWebhookEvent);
+  }
+
+  async incrementVerificationAttempts(id: string): Promise<void> {
+    await this.db.sql`
+      UPDATE webhook_events
+      SET verification_attempts = verification_attempts + 1
+      WHERE id = ${id}
+    `;
+  }
 }
