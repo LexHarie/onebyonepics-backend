@@ -359,6 +359,11 @@ export class WebhookEventsService {
         return { verified: false, amountMatch: false, statusMatch: false, error };
       }
 
+      // Log raw Maya API response for debugging
+      this.logger.debug(
+        `Maya API raw response for ${order.orderNumber}: ${JSON.stringify(mayaCheckout)}`,
+      );
+
       // Extract verified data from Maya API response
       // Maya API can return different formats:
       // - Checkout endpoint: { paymentStatus, totalAmount: { value } }
@@ -369,11 +374,14 @@ export class WebhookEventsService {
       let verifiedAmountPhp: number;
       if (mayaCheckout.totalAmount?.value !== undefined) {
         verifiedAmountPhp = Number(mayaCheckout.totalAmount.value);
+        this.logger.debug(`Using totalAmount.value: ${mayaCheckout.totalAmount.value}`);
       } else if ((mayaCheckout as any).amount !== undefined) {
         verifiedAmountPhp = Number((mayaCheckout as any).amount);
+        this.logger.debug(`Using amount field: ${(mayaCheckout as any).amount}`);
       } else {
         this.logger.warn(
-          `Could not extract amount from Maya API response for ${order.orderNumber}`,
+          `Could not extract amount from Maya API response for ${order.orderNumber}. ` +
+            `Available keys: ${Object.keys(mayaCheckout).join(', ')}`,
         );
         verifiedAmountPhp = 0;
       }
