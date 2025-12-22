@@ -267,10 +267,14 @@ export class AdminOrdersService {
           // Handle different Maya API response formats
           const apiStatus = mayaCheckout.paymentStatus || (mayaCheckout as any).status;
 
-          // Extract amount - can be totalAmount.value or just amount (string in PHP)
+          // Extract amount - Maya checkout API returns totalAmount.amount (string)
           let apiAmountPhp: number;
-          if (mayaCheckout.totalAmount?.value !== undefined) {
-            apiAmountPhp = Number(mayaCheckout.totalAmount.value);
+          const totalAmt = mayaCheckout.totalAmount as any;
+
+          if (totalAmt?.amount !== undefined) {
+            apiAmountPhp = Number(totalAmt.amount);
+          } else if (totalAmt?.value !== undefined) {
+            apiAmountPhp = Number(totalAmt.value);
           } else if ((mayaCheckout as any).amount !== undefined) {
             apiAmountPhp = Number((mayaCheckout as any).amount);
           } else {

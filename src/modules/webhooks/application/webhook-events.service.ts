@@ -370,18 +370,26 @@ export class WebhookEventsService {
       // - Payment endpoint: { status, amount (string in PHP) }
       const verifiedStatus = mayaCheckout.paymentStatus || (mayaCheckout as any).status;
 
-      // Handle both amount formats
+      // Handle various Maya API amount formats:
+      // - Checkout API: { totalAmount: { amount: "90" } }  <-- string!
+      // - Checkout API alt: { totalAmount: { value: 90 } }
+      // - Payment webhook: { amount: "90" }
       let verifiedAmountPhp: number;
-      if (mayaCheckout.totalAmount?.value !== undefined) {
-        verifiedAmountPhp = Number(mayaCheckout.totalAmount.value);
-        this.logger.debug(`Using totalAmount.value: ${mayaCheckout.totalAmount.value}`);
+      const totalAmt = mayaCheckout.totalAmount as any;
+
+      if (totalAmt?.amount !== undefined) {
+        verifiedAmountPhp = Number(totalAmt.amount);
+        this.logger.debug(`Using totalAmount.amount: ${totalAmt.amount}`);
+      } else if (totalAmt?.value !== undefined) {
+        verifiedAmountPhp = Number(totalAmt.value);
+        this.logger.debug(`Using totalAmount.value: ${totalAmt.value}`);
       } else if ((mayaCheckout as any).amount !== undefined) {
         verifiedAmountPhp = Number((mayaCheckout as any).amount);
         this.logger.debug(`Using amount field: ${(mayaCheckout as any).amount}`);
       } else {
         this.logger.warn(
           `Could not extract amount from Maya API response for ${order.orderNumber}. ` +
-            `Available keys: ${Object.keys(mayaCheckout).join(', ')}`,
+            `totalAmount=${JSON.stringify(totalAmt)}, amount=${(mayaCheckout as any).amount}`,
         );
         verifiedAmountPhp = 0;
       }
@@ -469,7 +477,13 @@ export class WebhookEventsService {
    * Called by the retry job after verification succeeds
    */
   async retryProcessWebhook(webhook: WebhookEvent, order: Order): Promise<boolean> {
-    const payload = webhook.rawPayload as unknown as MayaWebhookPayload;
+    // Parse payload if it's a string (older records)
+    let payload: MayaWebhookPayload;
+    if (typeof webhook.rawPayload === 'string') {
+      payload = JSON.parse(webhook.rawPayload) as MayaWebhookPayload;
+    } else {
+      payload = webhook.rawPayload as unknown as MayaWebhookPayload;
+    }
     const paymentStatus = extractPaymentStatus(payload);
 
     this.logger.log(`Retrying webhook ${webhook.id} for order ${order.orderNumber}`);

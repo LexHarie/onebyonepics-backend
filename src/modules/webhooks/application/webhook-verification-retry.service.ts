@@ -75,8 +75,13 @@ export class WebhookVerificationRetryService {
             continue;
           }
 
-          // Reconstruct payload from raw_payload
-          const payload = webhook.rawPayload as unknown as MayaWebhookPayload;
+          // Reconstruct payload from raw_payload (may be string if from older records)
+          let payload: MayaWebhookPayload;
+          if (typeof webhook.rawPayload === 'string') {
+            payload = JSON.parse(webhook.rawPayload) as MayaWebhookPayload;
+          } else {
+            payload = webhook.rawPayload as unknown as MayaWebhookPayload;
+          }
 
           // Retry verification
           const verificationResult =
