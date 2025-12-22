@@ -12,7 +12,8 @@
     "migrate:up": "bun run scripts/migrate.ts up",
     "migrate:down": "bun run scripts/migrate.ts down",
     "migrate:status": "bun run scripts/migrate.ts status",
-    "schema:validate": "bun run scripts/validate-schema.ts"
+    "schema:validate": "bun run scripts/validate-schema.ts",
+    "seed:admin": "bun run scripts/seed-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.686.0",
