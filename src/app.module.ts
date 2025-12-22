@@ -16,6 +16,7 @@ import { QuotasModule } from './modules/quotas/quotas.module';
 import { WatermarkModule } from './modules/watermark/watermark.module';
 import { RateLimiterModule } from './modules/rate-limiter/rate-limiter.module';
 import { SessionMigrationModule } from './modules/session-migration/session-migration.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { createAuth } from './lib/auth';
 import { PgPoolService } from './modules/database/infrastructure/pg-pool.service';
 
@@ -48,6 +49,7 @@ import { PgPoolService } from './modules/database/infrastructure/pg-pool.service
     QuotasModule,
     WatermarkModule,
     SessionMigrationModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
