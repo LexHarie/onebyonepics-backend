@@ -3,7 +3,18 @@ import type {
   OrderStatus,
   PaymentStatus,
 } from './entities/order.entity';
+import type { OrderItemRow } from './entities/order-item.entity';
 import type { GeneratedImageRow } from '../../generation/domain/entities/generated-image.entity';
+
+export interface CreateOrderItemInput {
+  gridConfigId: string;
+  generationJobId: string | null;
+  tileAssignments: Record<number, number>;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  composedImageKey?: string | null;
+}
 
 export interface IOrdersRepository {
   insertOrder(params: {
@@ -19,13 +30,20 @@ export interface IOrdersRepository {
     province: string;
     postalCode: string;
     deliveryZone: string;
-    gridConfigId: string;
+    gridConfigId: string | null;
     generationJobId: string | null;
-    tileAssignments: Record<number, number>;
+    tileAssignments: Record<number, number> | null;
     productPrice: number;
     deliveryFee: number;
     totalAmount: number;
+    itemCount: number;
   }): Promise<OrderRow>;
+  insertOrderItems(
+    orderId: string,
+    items: CreateOrderItemInput[],
+  ): Promise<OrderItemRow[]>;
+  findOrderItemsByOrderId(orderId: string): Promise<OrderItemRow[]>;
+  setOrderItemComposedKey(itemId: string, key: string, updatedAt: Date): Promise<void>;
   findById(orderId: string): Promise<OrderRow | null>;
   findByOrderNumber(orderNumber: string): Promise<OrderRow | null>;
   findByOrderNumberAndEmail(
