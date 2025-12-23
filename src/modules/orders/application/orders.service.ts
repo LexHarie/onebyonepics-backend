@@ -19,6 +19,7 @@ import {
   type OrderStatus,
   type DeliveryZone,
 } from '../domain/entities/order.entity';
+import { rowToOrderItem } from '../domain/entities/order-item.entity';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { rowToGeneratedImage } from '../../generation/domain/entities/generated-image.entity';
 import {
@@ -66,18 +67,22 @@ export class OrdersService {
     user?: User | null,
     sessionId?: string,
   ): Promise<Order> {
-    // Validate grid config exists
-    const gridConfig = gridConfigs.find((cfg) => cfg.id === dto.gridConfigId);
-    if (!gridConfig) {
-      throw new BadRequestException('Invalid grid configuration');
-    }
+    const itemsInput = dto.items?.length
+      ? dto.items
+      : dto.gridConfigId && dto.generationJobId && dto.tileAssignments
+        ? [
+          {
+            gridConfigId: dto.gridConfigId,
+            generationJobId: dto.generationJobId,
+            tileAssignments: dto.tileAssignments,
+            quantity: 1,
+          },
+        ]
+        : [];
 
-    // Verify generation job exists and user has access
-    await this.generationService.assertJobReadyForOrder(
-      dto.generationJobId,
-      user,
-      sessionId || dto.sessionId,
-    );
+    if (itemsInput.length === 0) {
+      throw new BadRequestException('Order must include at least one item');
+    }
 
     const orderNumber = this.generateOrderNumber();
     const userId = user?.id ?? null;
@@ -85,14 +90,52 @@ export class OrdersService {
 
     const isDigitalOnly = Boolean(dto.isDigitalOnly);
 
-    // Calculate pricing (in centavos)
-    const baseProductPrice = Math.round((gridConfig.price || 0) * 100);
-    const productPrice = isDigitalOnly
-      ? Math.max(1, Math.round(baseProductPrice * DIGITAL_ONLY_DISCOUNT))
-      : baseProductPrice;
     const deliveryZone = isDigitalOnly ? ('digital-only' as DeliveryZone) : dto.deliveryZone;
     const deliveryFee = DELIVERY_FEES[deliveryZone];
+
+    const gridConfigMap = new Map(gridConfigs.map((config) => [config.id, config]));
+
+    const normalizedItems: Array<{
+      gridConfigId: string;
+      generationJobId: string;
+      tileAssignments: Record<number, number>;
+      quantity: number;
+      unitPrice: number;
+      lineTotal: number;
+    }> = [];
+    for (const item of itemsInput) {
+      const gridConfig = gridConfigMap.get(item.gridConfigId);
+      if (!gridConfig) {
+        throw new BadRequestException('Invalid grid configuration');
+      }
+
+      await this.generationService.assertJobReadyForOrder(
+        item.generationJobId,
+        user,
+        effectiveSessionId ?? undefined,
+      );
+
+      const baseProductPrice = Math.round((gridConfig.price || 0) * 100);
+      const unitPrice = isDigitalOnly
+        ? Math.max(1, Math.round(baseProductPrice * DIGITAL_ONLY_DISCOUNT))
+        : baseProductPrice;
+      const quantity = Math.max(1, item.quantity);
+      const lineTotal = unitPrice * quantity;
+
+      normalizedItems.push({
+        gridConfigId: item.gridConfigId,
+        generationJobId: item.generationJobId,
+        tileAssignments: item.tileAssignments,
+        quantity,
+        unitPrice,
+        lineTotal,
+      });
+    }
+
+    const productPrice = normalizedItems.reduce((total, item) => total + item.lineTotal, 0);
     const totalAmount = productPrice + deliveryFee;
+    const itemCount = normalizedItems.reduce((total, item) => total + item.quantity, 0);
+    const legacyItem = normalizedItems.length === 1 ? normalizedItems[0] : null;
 
     // Provide fallback address values for digital-only orders (DB columns are NOT NULL)
     const streetAddress = isDigitalOnly ? 'Digital delivery' : dto.streetAddress;
@@ -114,15 +157,31 @@ export class OrdersService {
       province,
       postalCode,
       deliveryZone,
-      gridConfigId: dto.gridConfigId,
-      generationJobId: dto.generationJobId,
-      tileAssignments: dto.tileAssignments,
+      gridConfigId: legacyItem?.gridConfigId ?? null,
+      generationJobId: legacyItem?.generationJobId ?? null,
+      tileAssignments: legacyItem?.tileAssignments ?? null,
       productPrice,
       deliveryFee,
       totalAmount,
+      itemCount,
     });
 
-    return rowToOrder(row);
+    const itemRows = await this.ordersRepository.insertOrderItems(
+      row.id,
+      normalizedItems.map((item) => ({
+        gridConfigId: item.gridConfigId,
+        generationJobId: item.generationJobId,
+        tileAssignments: item.tileAssignments,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        lineTotal: item.lineTotal,
+      })),
+    );
+
+    return {
+      ...rowToOrder(row),
+      items: itemRows.map(rowToOrderItem),
+    };
   }
 
   /**
@@ -159,6 +218,12 @@ export class OrdersService {
     return false;
   }
 
+  private async attachItems(order: Order): Promise<Order> {
+    const itemRows = await this.ordersRepository.findOrderItemsByOrderId(order.id);
+    if (itemRows.length === 0) return order;
+    return { ...order, items: itemRows.map(rowToOrderItem) };
+  }
+
   /**
    * Get order with access check
    */
@@ -176,7 +241,7 @@ export class OrdersService {
       throw new ForbiddenException('Access denied');
     }
 
-    return order;
+    return this.attachItems(order);
   }
 
   /**
@@ -196,7 +261,7 @@ export class OrdersService {
       throw new ForbiddenException('Access denied');
     }
 
-    return order;
+    return this.attachItems(order);
   }
 
   /**
@@ -311,6 +376,7 @@ export class OrdersService {
     orderId: string,
     user?: User | null,
     sessionId?: string,
+    itemId?: string,
   ): Promise<{ url: string; expiresIn: number; downloadsRemaining: number }> {
     const order = await this.getOrder(orderId, user, sessionId);
 
@@ -318,7 +384,19 @@ export class OrdersService {
       throw new ForbiddenException('Order has not been paid');
     }
 
-    if (!order.composedImageKey) {
+    let composedImageKey = order.composedImageKey ?? null;
+
+    if (itemId) {
+      const item = order.items?.find((orderItem) => orderItem.id === itemId);
+      if (!item) {
+        throw new NotFoundException('Order item not found');
+      }
+      composedImageKey = item.composedImageKey;
+    } else if (!composedImageKey && order.items?.length === 1) {
+      composedImageKey = order.items[0].composedImageKey;
+    }
+
+    if (!composedImageKey) {
       throw new BadRequestException('Composed image not yet available');
     }
 
@@ -333,9 +411,11 @@ export class OrdersService {
 
     // Generate signed URL (valid for 1 hour)
     const expiresIn = 3600;
-    const filename = `onebyonepics-${order.orderNumber}.jpg`;
+    const filename = itemId
+      ? `onebyonepics-${order.orderNumber}-${itemId}.jpg`
+      : `onebyonepics-${order.orderNumber}.jpg`;
     const url = await this.storageService.getSignedUrl(
-      order.composedImageKey,
+      composedImageKey,
       expiresIn,
       filename,
     );
@@ -384,58 +464,101 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    if (!order.generationJobId) {
-      throw new BadRequestException('Order has no generation job');
-    }
+    const itemRows = await this.ordersRepository.findOrderItemsByOrderId(orderId);
 
-    this.logger.log(`Composing image for order ${order.orderNumber}`);
-
-    // Get unwatermarked generated images (is_preview = false)
-    const imageRows = await this.ordersRepository.findGeneratedImagesByJobId(
-      order.generationJobId,
-      false,
-    );
-
-    if (imageRows.length === 0) {
-      // Fallback to preview images if unwatermarked not available
-      this.logger.warn(`No unwatermarked images found for job ${order.generationJobId}, using preview images`);
-      const previewRows = await this.ordersRepository.findGeneratedImagesByJobId(
-        order.generationJobId,
-        true,
-      );
-
-      if (previewRows.length === 0) {
-        throw new BadRequestException('No generated images found');
+    if (itemRows.length === 0) {
+      if (!order.generationJobId || !order.gridConfigId || !order.tileAssignments) {
+        throw new BadRequestException('Order has no generation job');
       }
 
-      imageRows.push(...previewRows);
+      this.logger.log(`Composing image for order ${order.orderNumber}`);
+
+      const imageRows = await this.ordersRepository.findGeneratedImagesByJobId(
+        order.generationJobId,
+        false,
+      );
+
+      if (imageRows.length === 0) {
+        this.logger.warn(`No unwatermarked images found for job ${order.generationJobId}, using preview images`);
+        const previewRows = await this.ordersRepository.findGeneratedImagesByJobId(
+          order.generationJobId,
+          true,
+        );
+
+        if (previewRows.length === 0) {
+          throw new BadRequestException('No generated images found');
+        }
+
+        imageRows.push(...previewRows);
+      }
+
+      const images = imageRows.map(rowToGeneratedImage);
+      const imageKeys = images.map((img) => img.storageKey);
+
+      const tileAssignments = order.tileAssignments as Record<number, number>;
+
+      const composedBuffer = await this.compositionService.composeGrid({
+        gridConfigId: order.gridConfigId,
+        tileAssignments,
+        imageKeys,
+      });
+
+      const composedKey = `orders/${order.id}/composed-${order.orderNumber}.jpg`;
+      await this.storageService.uploadObject(composedKey, composedBuffer, 'image/jpeg');
+
+      this.logger.log(`Stored composed image: ${composedKey} (${composedBuffer.length} bytes)`);
+
+      const updatedOrder = await this.setComposedImageKey(orderId, composedKey);
+
+      await this.markImagesPermanent(order.generationJobId);
+
+      return updatedOrder;
     }
 
-    const images = imageRows.map(rowToGeneratedImage);
-    const imageKeys = images.map((img) => img.storageKey);
+    this.logger.log(`Composing ${itemRows.length} item images for order ${order.orderNumber}`);
 
-    // Parse tile assignments
-    const tileAssignments = order.tileAssignments as Record<number, number>;
+    for (const item of itemRows) {
+      if (!item.generation_job_id) {
+        throw new BadRequestException('Order item has no generation job');
+      }
 
-    // Compose the grid
-    const composedBuffer = await this.compositionService.composeGrid({
-      gridConfigId: order.gridConfigId,
-      tileAssignments,
-      imageKeys,
-    });
+      const imageRows = await this.ordersRepository.findGeneratedImagesByJobId(
+        item.generation_job_id,
+        false,
+      );
 
-    // Store composed image
-    const composedKey = `orders/${order.id}/composed-${order.orderNumber}.jpg`;
-    await this.storageService.uploadObject(composedKey, composedBuffer, 'image/jpeg');
+      if (imageRows.length === 0) {
+        this.logger.warn(`No unwatermarked images found for job ${item.generation_job_id}, using preview images`);
+        const previewRows = await this.ordersRepository.findGeneratedImagesByJobId(
+          item.generation_job_id,
+          true,
+        );
 
-    this.logger.log(`Stored composed image: ${composedKey} (${composedBuffer.length} bytes)`);
+        if (previewRows.length === 0) {
+          throw new BadRequestException('No generated images found');
+        }
 
-    // Update order with composed image key
-    const updatedOrder = await this.setComposedImageKey(orderId, composedKey);
+        imageRows.push(...previewRows);
+      }
 
-    // Mark generated images as permanent
-    await this.markImagesPermanent(order.generationJobId);
+      const images = imageRows.map(rowToGeneratedImage);
+      const imageKeys = images.map((img) => img.storageKey);
 
-    return updatedOrder;
+      const composedBuffer = await this.compositionService.composeGrid({
+        gridConfigId: item.grid_config_id,
+        tileAssignments: item.tile_assignments,
+        imageKeys,
+      });
+
+      const composedKey = `orders/${order.id}/items/${item.id}/composed-${order.orderNumber}.jpg`;
+      await this.storageService.uploadObject(composedKey, composedBuffer, 'image/jpeg');
+
+      this.logger.log(`Stored composed image: ${composedKey} (${composedBuffer.length} bytes)`);
+
+      await this.ordersRepository.setOrderItemComposedKey(item.id, composedKey, new Date());
+      await this.markImagesPermanent(item.generation_job_id);
+    }
+
+    return this.attachItems(order);
   }
 }
