@@ -34,9 +34,23 @@ export class OrdersController {
     // Create the order
     const order = await this.ordersService.createOrder(dto, user, dto.sessionId);
 
-    // Get grid config name for Maya checkout description
-    const gridConfig = gridConfigs.find((cfg) => cfg.id === dto.gridConfigId);
-    const gridConfigName = gridConfig?.name || dto.gridConfigId;
+    const orderItems = dto.items?.length
+      ? dto.items
+      : dto.gridConfigId
+        ? [
+          {
+            gridConfigId: dto.gridConfigId,
+          },
+        ]
+        : [];
+
+    let gridConfigName = 'Order';
+    if (orderItems.length === 1) {
+      const gridConfig = gridConfigs.find((cfg) => cfg.id === orderItems[0].gridConfigId);
+      gridConfigName = gridConfig?.name || orderItems[0].gridConfigId;
+    } else if (orderItems.length > 1) {
+      gridConfigName = `${orderItems.length} items`;
+    }
 
     // Check if Maya is configured
     if (!this.mayaService.isConfigured()) {
@@ -99,7 +113,7 @@ export class OrdersController {
       id: order.id,
       orderNumber: order.orderNumber,
       customerName: order.customerName,
-      gridConfigId: order.gridConfigId,
+      gridConfigId: order.gridConfigId ?? null,
       deliveryZone: order.deliveryZone,
       productPrice: order.productPrice,
       deliveryFee: order.deliveryFee,
@@ -122,25 +136,36 @@ export class OrdersController {
   ) {
     const order = await this.ordersService.getOrderByNumber(orderNumber, user, sessionId);
 
-    return {
-      id: order.id,
-      orderNumber: order.orderNumber,
-      customerName: order.customerName,
-      customerEmail: order.customerEmail,
-      gridConfigId: order.gridConfigId,
-      deliveryZone: order.deliveryZone,
-      productPrice: order.productPrice,
-      deliveryFee: order.deliveryFee,
-      totalAmount: order.totalAmount,
-      paymentStatus: order.paymentStatus,
-      orderStatus: order.orderStatus,
-      downloadCount: order.downloadCount,
-      maxDownloads: order.maxDownloads,
-      composedImageKey: order.composedImageKey,
-      createdAt: order.createdAt,
-      paidAt: order.paidAt,
-      isDigitalOnly: order.isDigitalOnly,
-    };
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        gridConfigId: order.gridConfigId,
+        deliveryZone: order.deliveryZone,
+        productPrice: order.productPrice,
+        deliveryFee: order.deliveryFee,
+        totalAmount: order.totalAmount,
+        itemCount: order.itemCount,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus,
+        downloadCount: order.downloadCount,
+        maxDownloads: order.maxDownloads,
+        composedImageKey: order.composedImageKey,
+        items: order.items?.map((item) => ({
+          id: item.id,
+          gridConfigId: item.gridConfigId,
+          generationJobId: item.generationJobId,
+          tileAssignments: item.tileAssignments,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+          composedImageKey: item.composedImageKey,
+        })),
+        createdAt: order.createdAt,
+        paidAt: order.paidAt,
+        isDigitalOnly: order.isDigitalOnly,
+      };
   }
 
   @Get(':id')
@@ -152,25 +177,47 @@ export class OrdersController {
   ) {
     const order = await this.ordersService.getOrder(id, user, sessionId);
 
-    return {
-      id: order.id,
-      orderNumber: order.orderNumber,
-      customerName: order.customerName,
-      customerEmail: order.customerEmail,
-      gridConfigId: order.gridConfigId,
-      deliveryZone: order.deliveryZone,
-      productPrice: order.productPrice,
-      deliveryFee: order.deliveryFee,
-      totalAmount: order.totalAmount,
-      paymentStatus: order.paymentStatus,
-      orderStatus: order.orderStatus,
-      downloadCount: order.downloadCount,
-      maxDownloads: order.maxDownloads,
-      composedImageKey: order.composedImageKey,
-      createdAt: order.createdAt,
-      paidAt: order.paidAt,
-      isDigitalOnly: order.isDigitalOnly,
-    };
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        customerEmail: order.customerEmail,
+        gridConfigId: order.gridConfigId,
+        deliveryZone: order.deliveryZone,
+        productPrice: order.productPrice,
+        deliveryFee: order.deliveryFee,
+        totalAmount: order.totalAmount,
+        itemCount: order.itemCount,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus,
+        downloadCount: order.downloadCount,
+        maxDownloads: order.maxDownloads,
+        composedImageKey: order.composedImageKey,
+        items: order.items?.map((item) => ({
+          id: item.id,
+          gridConfigId: item.gridConfigId,
+          generationJobId: item.generationJobId,
+          tileAssignments: item.tileAssignments,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+          composedImageKey: item.composedImageKey,
+        })),
+        createdAt: order.createdAt,
+        paidAt: order.paidAt,
+        isDigitalOnly: order.isDigitalOnly,
+      };
+  }
+
+  @Get(':id/items')
+  @UseGuards(OptionalAuthGuard)
+  async getOrderItems(
+    @Param('id') id: string,
+    @CurrentUser() user?: User,
+    @Query('sessionId') sessionId?: string,
+  ) {
+    const order = await this.ordersService.getOrder(id, user, sessionId);
+    return order.items ?? [];
   }
 
   @Get(':id/download')
@@ -179,8 +226,9 @@ export class OrdersController {
     @Param('id') id: string,
     @CurrentUser() user?: User,
     @Query('sessionId') sessionId?: string,
+    @Query('itemId') itemId?: string,
   ) {
-    return this.ordersService.getDownloadUrl(id, user, sessionId);
+    return this.ordersService.getDownloadUrl(id, user, sessionId, itemId);
   }
 
   @Get()
@@ -196,6 +244,7 @@ export class OrdersController {
       orderNumber: order.orderNumber,
       gridConfigId: order.gridConfigId,
       totalAmount: order.totalAmount,
+      itemCount: order.itemCount,
       paymentStatus: order.paymentStatus,
       orderStatus: order.orderStatus,
       createdAt: order.createdAt,
