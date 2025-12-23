@@ -5,8 +5,12 @@ import type {
   OrderStatus,
   PaymentStatus,
 } from '../../../domain/entities/order.entity';
+import type { OrderItemRow } from '../../../domain/entities/order-item.entity';
 import type { GeneratedImageRow } from '../../../../generation/domain/entities/generated-image.entity';
-import type { IOrdersRepository } from '../../../domain/orders.repository.interface';
+import type {
+  CreateOrderItemInput,
+  IOrdersRepository,
+} from '../../../domain/orders.repository.interface';
 
 @Injectable()
 export class OrdersRepository implements IOrdersRepository {
@@ -25,20 +29,25 @@ export class OrdersRepository implements IOrdersRepository {
     province: string;
     postalCode: string;
     deliveryZone: string;
-    gridConfigId: string;
+    gridConfigId: string | null;
     generationJobId: string | null;
-    tileAssignments: Record<number, number>;
+    tileAssignments: Record<number, number> | null;
     productPrice: number;
     deliveryFee: number;
     totalAmount: number;
+    itemCount: number;
   }): Promise<OrderRow> {
+    const tileAssignmentsJson = params.tileAssignments
+      ? JSON.stringify(params.tileAssignments)
+      : null;
+
     const rows = await this.db.sql<OrderRow[]>`
       INSERT INTO orders (
         order_number, user_id, session_id,
         customer_name, customer_email, customer_phone,
         street_address, barangay, city, province, postal_code, delivery_zone,
         grid_config_id, generation_job_id, tile_assignments,
-        product_price, delivery_fee, total_amount,
+        product_price, delivery_fee, total_amount, item_count,
         payment_status, order_status
       )
       VALUES (
@@ -47,14 +56,73 @@ export class OrdersRepository implements IOrdersRepository {
         ${params.streetAddress}, ${params.barangay}, ${params.city}, ${params.province},
         ${params.postalCode}, ${params.deliveryZone},
         ${params.gridConfigId}, ${params.generationJobId},
-        ${JSON.stringify(params.tileAssignments)},
+        ${tileAssignmentsJson},
         ${params.productPrice}, ${params.deliveryFee}, ${params.totalAmount},
+        ${params.itemCount},
         'pending', 'pending'
       )
       RETURNING *
     `;
 
     return rows[0];
+  }
+
+  async insertOrderItems(
+    orderId: string,
+    items: CreateOrderItemInput[],
+  ): Promise<OrderItemRow[]> {
+    const rows: OrderItemRow[] = [];
+
+    for (const item of items) {
+      const result = await this.db.sql<OrderItemRow[]>`
+        INSERT INTO order_items (
+          order_id,
+          grid_config_id,
+          generation_job_id,
+          tile_assignments,
+          quantity,
+          unit_price,
+          line_total,
+          composed_image_key
+        )
+        VALUES (
+          ${orderId},
+          ${item.gridConfigId},
+          ${item.generationJobId},
+          ${JSON.stringify(item.tileAssignments)},
+          ${item.quantity},
+          ${item.unitPrice},
+          ${item.lineTotal},
+          ${item.composedImageKey ?? null}
+        )
+        RETURNING *
+      `;
+      if (result[0]) {
+        rows.push(result[0]);
+      }
+    }
+
+    return rows;
+  }
+
+  async findOrderItemsByOrderId(orderId: string): Promise<OrderItemRow[]> {
+    return this.db.sql<OrderItemRow[]>`
+      SELECT * FROM order_items
+      WHERE order_id = ${orderId}
+      ORDER BY created_at ASC
+    `;
+  }
+
+  async setOrderItemComposedKey(
+    itemId: string,
+    key: string,
+    updatedAt: Date,
+  ): Promise<void> {
+    await this.db.sql`
+      UPDATE order_items
+      SET composed_image_key = ${key}, updated_at = ${updatedAt}
+      WHERE id = ${itemId}
+    `;
   }
 
   async findById(orderId: string): Promise<OrderRow | null> {
