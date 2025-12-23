@@ -82,6 +82,7 @@ export interface IOrdersRepository {
     generationJobId: string,
     isPreview: boolean,
   ): Promise<GeneratedImageRow[]>;
+  findPaidOrderIdsByGenerationJobId(generationJobId: string): Promise<string[]>;
 }
 
 export const IOrdersRepositoryToken = Symbol('IOrdersRepository');

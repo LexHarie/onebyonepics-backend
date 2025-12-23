@@ -286,4 +286,19 @@ export class OrdersRepository implements IOrdersRepository {
       ORDER BY variation_index ASC
     `;
   }
+
+  async findPaidOrderIdsByGenerationJobId(generationJobId: string): Promise<string[]> {
+    const rows = await this.db.sql<{ id: string }[]>`
+      SELECT DISTINCT o.id
+      FROM orders o
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      WHERE o.payment_status = 'paid'
+        AND (
+          o.generation_job_id = ${generationJobId}
+          OR oi.generation_job_id = ${generationJobId}
+        )
+    `;
+
+    return rows.map((row) => row.id);
+  }
 }
