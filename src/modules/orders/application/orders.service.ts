@@ -19,7 +19,7 @@ import {
   type OrderStatus,
   type DeliveryZone,
 } from '../domain/entities/order.entity';
-import { rowToOrderItem } from '../domain/entities/order-item.entity';
+import { rowToOrderItem, type OrderItemRow } from '../domain/entities/order-item.entity';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { rowToGeneratedImage } from '../../generation/domain/entities/generated-image.entity';
 import {
@@ -57,6 +57,104 @@ export class OrdersService {
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
     const random = randomBytes(3).toString('hex').toUpperCase();
     return `OBP-${dateStr}-${random}`;
+  }
+
+  private normalizeTileAssignments(
+    assignments: Record<number, number> | string | null | undefined,
+  ): Record<number, number> {
+    if (!assignments) return {};
+    const raw = typeof assignments === 'string'
+      ? (() => {
+        try {
+          return JSON.parse(assignments) as Record<string, unknown>;
+        } catch (error) {
+          this.logger.warn(`Failed to parse tile assignments: ${(error as Error).message}`);
+          return null;
+        }
+      })()
+      : assignments;
+
+    if (!raw || typeof raw !== 'object') {
+      return {};
+    }
+
+    const normalized: Record<number, number> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      const numericValue =
+        typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? Number(value)
+            : NaN;
+      if (Number.isFinite(numericValue)) {
+        normalized[Number(key)] = numericValue;
+      }
+    }
+    return normalized;
+  }
+
+  private async composeOrderItem(params: {
+    orderId: string;
+    orderNumber: string;
+    item: OrderItemRow;
+  }): Promise<string | null> {
+    if (params.item.composed_image_key) {
+      return params.item.composed_image_key;
+    }
+
+    if (!params.item.generation_job_id) {
+      this.logger.warn(`Order item ${params.item.id} has no generation job`);
+      return null;
+    }
+
+    const imageRows = await this.ordersRepository.findGeneratedImagesByJobId(
+      params.item.generation_job_id,
+      false,
+    );
+
+    if (imageRows.length === 0) {
+      this.logger.warn(
+        `No unwatermarked images found for job ${params.item.generation_job_id}, using preview images`,
+      );
+      const previewRows = await this.ordersRepository.findGeneratedImagesByJobId(
+        params.item.generation_job_id,
+        true,
+      );
+
+      if (previewRows.length === 0) {
+        this.logger.warn(
+          `No generated images found for job ${params.item.generation_job_id}`,
+        );
+        return null;
+      }
+
+      imageRows.push(...previewRows);
+    }
+
+    const images = imageRows.map(rowToGeneratedImage);
+    const imageKeys = images.map((img) => img.storageKey);
+    const tileAssignments = this.normalizeTileAssignments(params.item.tile_assignments);
+
+    if (Object.keys(tileAssignments).length === 0) {
+      this.logger.warn(`Order item ${params.item.id} has no tile assignments`);
+      return null;
+    }
+
+    const composedBuffer = await this.compositionService.composeGrid({
+      gridConfigId: params.item.grid_config_id,
+      tileAssignments,
+      imageKeys,
+    });
+
+    const composedKey = `orders/${params.orderId}/items/${params.item.id}/composed-${params.orderNumber}.jpg`;
+    await this.storageService.uploadObject(composedKey, composedBuffer, 'image/jpeg');
+
+    this.logger.log(`Stored composed image: ${composedKey} (${composedBuffer.length} bytes)`);
+
+    await this.ordersRepository.setOrderItemComposedKey(params.item.id, composedKey, new Date());
+    await this.markImagesPermanent(params.item.generation_job_id);
+
+    return composedKey;
   }
 
   /**
@@ -397,6 +495,22 @@ export class OrdersService {
     }
 
     if (!composedImageKey) {
+      await this.composeAndStoreImage(orderId);
+      const refreshed = await this.getOrder(orderId, user, sessionId);
+      composedImageKey = refreshed.composedImageKey ?? null;
+
+      if (itemId) {
+        const refreshedItem = refreshed.items?.find((orderItem) => orderItem.id === itemId);
+        if (!refreshedItem) {
+          throw new NotFoundException('Order item not found');
+        }
+        composedImageKey = refreshedItem.composedImageKey;
+      } else if (!composedImageKey && refreshed.items?.length === 1) {
+        composedImageKey = refreshed.items[0].composedImageKey;
+      }
+    }
+
+    if (!composedImageKey) {
       throw new BadRequestException('Composed image not yet available');
     }
 
@@ -435,6 +549,26 @@ export class OrdersService {
       generationJobId,
       new Date(),
     );
+  }
+
+  async composeForGenerationJob(generationJobId: string): Promise<void> {
+    const orderIds = await this.ordersRepository.findPaidOrderIdsByGenerationJobId(
+      generationJobId,
+    );
+
+    if (orderIds.length === 0) {
+      return;
+    }
+
+    for (const orderId of orderIds) {
+      try {
+        await this.composeAndStoreImage(orderId);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to compose order ${orderId} after generation ${generationJobId}: ${(error as Error).message}`,
+        );
+      }
+    }
   }
 
   /**
@@ -495,7 +629,11 @@ export class OrdersService {
       const images = imageRows.map(rowToGeneratedImage);
       const imageKeys = images.map((img) => img.storageKey);
 
-      const tileAssignments = order.tileAssignments as Record<number, number>;
+      const tileAssignments = this.normalizeTileAssignments(order.tileAssignments);
+
+      if (Object.keys(tileAssignments).length === 0) {
+        throw new BadRequestException('Order has no tile assignments');
+      }
 
       const composedBuffer = await this.compositionService.composeGrid({
         gridConfigId: order.gridConfigId,
@@ -518,45 +656,17 @@ export class OrdersService {
     this.logger.log(`Composing ${itemRows.length} item images for order ${order.orderNumber}`);
 
     for (const item of itemRows) {
-      if (!item.generation_job_id) {
-        throw new BadRequestException('Order item has no generation job');
-      }
-
-      const imageRows = await this.ordersRepository.findGeneratedImagesByJobId(
-        item.generation_job_id,
-        false,
-      );
-
-      if (imageRows.length === 0) {
-        this.logger.warn(`No unwatermarked images found for job ${item.generation_job_id}, using preview images`);
-        const previewRows = await this.ordersRepository.findGeneratedImagesByJobId(
-          item.generation_job_id,
-          true,
+      try {
+        await this.composeOrderItem({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          item,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to compose item ${item.id} for order ${order.orderNumber}: ${(error as Error).message}`,
         );
-
-        if (previewRows.length === 0) {
-          throw new BadRequestException('No generated images found');
-        }
-
-        imageRows.push(...previewRows);
       }
-
-      const images = imageRows.map(rowToGeneratedImage);
-      const imageKeys = images.map((img) => img.storageKey);
-
-      const composedBuffer = await this.compositionService.composeGrid({
-        gridConfigId: item.grid_config_id,
-        tileAssignments: item.tile_assignments,
-        imageKeys,
-      });
-
-      const composedKey = `orders/${order.id}/items/${item.id}/composed-${order.orderNumber}.jpg`;
-      await this.storageService.uploadObject(composedKey, composedBuffer, 'image/jpeg');
-
-      this.logger.log(`Stored composed image: ${composedKey} (${composedBuffer.length} bytes)`);
-
-      await this.ordersRepository.setOrderItemComposedKey(item.id, composedKey, new Date());
-      await this.markImagesPermanent(item.generation_job_id);
     }
 
     return this.attachItems(order);

@@ -13,7 +13,7 @@ import { OptionalAuthGuard } from '../../common/guards/optional-auth.guard';
   imports: [
     DatabaseModule,
     StorageModule,
-    GenerationModule,
+    forwardRef(() => GenerationModule),
     CompositionModule,
     forwardRef(() => PaymentsModule),
   ],
