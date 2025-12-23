@@ -2,6 +2,8 @@ export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 export type DeliveryZone = 'cebu-city' | 'outside-cebu' | 'digital-only';
 
+import type { OrderItem } from './order-item.entity';
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -22,9 +24,11 @@ export interface Order {
   deliveryZone: DeliveryZone;
 
   // Product info
-  gridConfigId: string;
+  gridConfigId?: string | null;
   generationJobId?: string | null;
-  tileAssignments: Record<number, number>;
+  tileAssignments?: Record<number, number>;
+  itemCount: number;
+  items?: OrderItem[];
 
   // Pricing (in centavos)
   productPrice: number;
@@ -67,12 +71,13 @@ export interface OrderRow {
   province: string;
   postal_code: string;
   delivery_zone: string;
-  grid_config_id: string;
+  grid_config_id: string | null;
   generation_job_id: string | null;
-  tile_assignments: Record<number, number>;
+  tile_assignments: Record<number, number> | null;
   product_price: number;
   delivery_fee: number;
   total_amount: number;
+  item_count: number;
   payment_status: string;
   order_status: string;
   maya_checkout_id: string | null;
@@ -102,9 +107,10 @@ export function rowToOrder(row: OrderRow): Order {
     province: row.province,
     postalCode: row.postal_code,
     deliveryZone: row.delivery_zone as DeliveryZone,
-    gridConfigId: row.grid_config_id,
-    generationJobId: row.generation_job_id,
-    tileAssignments: row.tile_assignments,
+    gridConfigId: row.grid_config_id ?? undefined,
+    generationJobId: row.generation_job_id ?? undefined,
+    tileAssignments: row.tile_assignments ?? undefined,
+    itemCount: row.item_count ?? 1,
     productPrice: row.product_price,
     deliveryFee: row.delivery_fee,
     totalAmount: row.total_amount,
