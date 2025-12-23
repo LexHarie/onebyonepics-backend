@@ -10,6 +10,7 @@ import { migration008AddWebhookVerification } from './008_add_webhook_verificati
 import { migration009AddAdminRole } from './009_add_admin_role';
 import { migration010AddDailyStats } from './010_add_daily_stats';
 import { migration011AddOrderItems } from './011_add_order_items';
+import { migration012AddAdminWorkflowTracking } from './012_add_admin_workflow_tracking';
 
 // Export all migrations in order
 // Add new migrations to this array as they are created
@@ -25,6 +26,7 @@ export const migrations: Migration[] = [
   migration009AddAdminRole,
   migration010AddDailyStats,
   migration011AddOrderItems,
+  migration012AddAdminWorkflowTracking,
 ];
 
 export type { Migration } from './migration.interface';
