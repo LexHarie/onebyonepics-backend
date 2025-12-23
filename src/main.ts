@@ -43,6 +43,7 @@ async function bootstrap() {
         ? true
         : corsOrigin.split(',').map((item) => item.trim()),
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // Register Better Auth routes manually for Fastify
