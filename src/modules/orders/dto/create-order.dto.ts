@@ -1,23 +1,38 @@
 import {
-  IsString,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
   IsEmail,
+  IsIn,
   IsObject,
   IsOptional,
-  MinLength,
+  IsString,
   Matches,
-  IsIn,
-  IsBoolean,
+  MinLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import type { DeliveryZone } from '../domain/entities/order.entity';
+import { CreateOrderItemDto } from './order-item.dto';
 
 export class CreateOrderDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items?: CreateOrderItemDto[];
+
+  @ValidateIf((o) => !o.items?.length)
   @IsString()
   generationJobId!: string;
 
+  @ValidateIf((o) => !o.items?.length)
   @IsString()
   gridConfigId!: string;
 
+  @ValidateIf((o) => !o.items?.length)
   @IsObject()
   tileAssignments!: Record<number, number>;
 
