@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { GenerationController } from './interfaces/controllers/generation.controller';
 import { GenerationService } from './application/generation.service';
@@ -10,6 +10,7 @@ import { GenAIModule } from '../genai/genai.module';
 import { QuotasModule } from '../quotas/quotas.module';
 import { WatermarkModule } from '../watermark/watermark.module';
 import { QueueModule } from '../queue/queue.module';
+import { OrdersModule } from '../orders/orders.module';
 import { OptionalAuthGuard } from '../../common/guards/optional-auth.guard';
 
 @Module({
@@ -21,6 +22,7 @@ import { OptionalAuthGuard } from '../../common/guards/optional-auth.guard';
     QuotasModule,
     WatermarkModule,
     QueueModule,
+    forwardRef(() => OrdersModule),
   ],
   controllers: [GenerationController],
   providers: [

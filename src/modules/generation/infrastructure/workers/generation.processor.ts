@@ -1,11 +1,12 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Logger, forwardRef } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import { StorageService } from '../../../storage/infrastructure/storage.service';
 import { GenAIService } from '../../../genai/infrastructure/genai.service';
 import { QuotasService } from '../../../quotas/application/quotas.service';
 import { WatermarkService } from '../../../watermark/application/watermark.service';
+import { OrdersService } from '../../../orders/application/orders.service';
 import { rowToGenerationJob } from '../../domain/entities/generation-job.entity';
 import { rowToUploadedImage } from '../../../images/domain/entities/image.entity';
 import { GENERATION_QUEUE } from '../../../queue/queue.module';
@@ -40,6 +41,8 @@ export class GenerationProcessor extends WorkerHost {
     private readonly configService: ConfigService,
     private readonly quotasService: QuotasService,
     private readonly watermarkService: WatermarkService,
+    @Inject(forwardRef(() => OrdersService))
+    private readonly ordersService: OrdersService,
   ) {
     super();
   }
@@ -152,6 +155,14 @@ export class GenerationProcessor extends WorkerHost {
       }
 
       await this.generationRepository.updateJobCompleted(jobId, new Date());
+
+      try {
+        await this.ordersService.composeForGenerationJob(jobId);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to compose order images after generation ${jobId}: ${(error as Error).message}`,
+        );
+      }
 
       this.logger.log(`Generation job ${jobId} completed successfully`);
     } catch (err) {
