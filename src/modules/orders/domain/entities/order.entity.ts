@@ -4,6 +4,35 @@ export type DeliveryZone = 'cebu-city' | 'outside-cebu' | 'digital-only';
 
 import type { OrderItem } from './order-item.entity';
 
+function normalizeTileAssignments(
+  assignments: Record<number, number> | string | null,
+): Record<number, number> | undefined {
+  if (!assignments) return undefined;
+  const raw = typeof assignments === 'string'
+    ? (() => {
+      try {
+        return JSON.parse(assignments) as Record<string, unknown>;
+      } catch {
+        return null;
+      }
+    })()
+    : assignments;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const normalized: Record<number, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const numericValue =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value)
+          : NaN;
+    if (Number.isFinite(numericValue)) {
+      normalized[Number(key)] = numericValue;
+    }
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -48,6 +77,12 @@ export interface Order {
   downloadCount: number;
   maxDownloads: number;
 
+  // Admin workflow
+  adminDownloadedAt?: Date | null;
+  adminDownloadedBy?: string | null;
+  adminPrintedAt?: Date | null;
+  adminPrintedBy?: string | null;
+
   // Timestamps
   paidAt?: Date | null;
   shippedAt?: Date | null;
@@ -73,7 +108,7 @@ export interface OrderRow {
   delivery_zone: string;
   grid_config_id: string | null;
   generation_job_id: string | null;
-  tile_assignments: Record<number, number> | null;
+  tile_assignments: Record<number, number> | string | null;
   product_price: number;
   delivery_fee: number;
   total_amount: number;
@@ -85,6 +120,10 @@ export interface OrderRow {
   composed_image_key: string | null;
   download_count: number;
   max_downloads: number;
+  admin_downloaded_at: Date | null;
+  admin_downloaded_by: string | null;
+  admin_printed_at: Date | null;
+  admin_printed_by: string | null;
   paid_at: Date | null;
   shipped_at: Date | null;
   delivered_at: Date | null;
@@ -93,6 +132,7 @@ export interface OrderRow {
 }
 
 export function rowToOrder(row: OrderRow): Order {
+  const normalizedAssignments = normalizeTileAssignments(row.tile_assignments);
   return {
     id: row.id,
     orderNumber: row.order_number,
@@ -109,7 +149,7 @@ export function rowToOrder(row: OrderRow): Order {
     deliveryZone: row.delivery_zone as DeliveryZone,
     gridConfigId: row.grid_config_id ?? undefined,
     generationJobId: row.generation_job_id ?? undefined,
-    tileAssignments: row.tile_assignments ?? undefined,
+    tileAssignments: normalizedAssignments,
     itemCount: row.item_count ?? 1,
     productPrice: row.product_price,
     deliveryFee: row.delivery_fee,
@@ -121,6 +161,10 @@ export function rowToOrder(row: OrderRow): Order {
     composedImageKey: row.composed_image_key,
     downloadCount: row.download_count,
     maxDownloads: row.max_downloads,
+    adminDownloadedAt: row.admin_downloaded_at,
+    adminDownloadedBy: row.admin_downloaded_by,
+    adminPrintedAt: row.admin_printed_at,
+    adminPrintedBy: row.admin_printed_by,
     paidAt: row.paid_at,
     shippedAt: row.shipped_at,
     deliveredAt: row.delivered_at,
