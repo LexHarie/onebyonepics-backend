@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../../database/infrastructure/database.service';
 import type { OrderRow, OrderStatus, PaymentStatus } from '../../../orders/domain/entities/order.entity';
+import type { OrderItemRow } from '../../../orders/domain/entities/order-item.entity';
 import type { GenerationJobRow } from '../../../generation/domain/entities/generation-job.entity';
 import type { GeneratedImageRow } from '../../../generation/domain/entities/generated-image.entity';
 import type { UploadedImageRow } from '../../../images/domain/entities/image.entity';
@@ -41,6 +42,19 @@ export interface AdminWebhookRow {
   processed_at: Date | null;
   verified: boolean | null;
   verification_status: string | null;
+}
+
+export interface AdminOrderItemSummary {
+  id: string;
+  order_id: string;
+  grid_config_id: string;
+  composed_image_key: string | null;
+  quantity: number;
+}
+
+export interface AdminOrderWithComposedItems {
+  order: OrderRow;
+  items: AdminOrderItemSummary[];
 }
 
 @Injectable()
@@ -134,6 +148,42 @@ export class AdminRepository {
     return rows[0] ?? null;
   }
 
+  async findOrderItemsByOrderId(orderId: string): Promise<OrderItemRow[]> {
+    return this.db.sql<OrderItemRow[]>`
+      SELECT * FROM order_items
+      WHERE order_id = ${orderId}
+      ORDER BY created_at ASC
+    `;
+  }
+
+  async findOrdersWithComposedImages(orderIds: string[]): Promise<AdminOrderWithComposedItems[]> {
+    if (orderIds.length === 0) return [];
+
+    const orderIdsArray = this.db.sql.array(orderIds, 'uuid');
+    const orders = await this.db.sql<OrderRow[]>`
+      SELECT * FROM orders WHERE id = ANY(${orderIdsArray})
+    `;
+
+    const items = await this.db.sql<AdminOrderItemSummary[]>`
+      SELECT id, order_id, grid_config_id, composed_image_key, quantity
+      FROM order_items
+      WHERE order_id = ANY(${orderIdsArray})
+      ORDER BY created_at ASC
+    `;
+
+    const itemsByOrder = new Map<string, AdminOrderItemSummary[]>();
+    for (const item of items) {
+      const existing = itemsByOrder.get(item.order_id) ?? [];
+      existing.push(item);
+      itemsByOrder.set(item.order_id, existing);
+    }
+
+    return orders.map((order) => ({
+      order,
+      items: itemsByOrder.get(order.id) ?? [],
+    }));
+  }
+
   async updateOrderStatus(orderId: string, status: OrderStatus, updatedAt: Date): Promise<OrderRow | null> {
     let rows: OrderRow[];
 
@@ -180,6 +230,42 @@ export class AdminRepository {
         order_status = ${params.orderStatus},
         updated_at = ${params.updatedAt}
       WHERE id = ${params.orderId}
+      RETURNING *
+    `;
+
+    return rows[0] ?? null;
+  }
+
+  async markOrderDownloaded(
+    orderId: string,
+    adminUserId: string,
+    downloadedAt: Date,
+  ): Promise<OrderRow | null> {
+    const rows = await this.db.sql<OrderRow[]>`
+      UPDATE orders
+      SET
+        admin_downloaded_at = ${downloadedAt},
+        admin_downloaded_by = ${adminUserId},
+        updated_at = ${downloadedAt}
+      WHERE id = ${orderId} AND admin_downloaded_at IS NULL
+      RETURNING *
+    `;
+
+    return rows[0] ?? null;
+  }
+
+  async markOrderPrinted(
+    orderId: string,
+    adminUserId: string,
+    printedAt: Date,
+  ): Promise<OrderRow | null> {
+    const rows = await this.db.sql<OrderRow[]>`
+      UPDATE orders
+      SET
+        admin_printed_at = ${printedAt},
+        admin_printed_by = ${adminUserId},
+        updated_at = ${printedAt}
+      WHERE id = ${orderId} AND admin_printed_at IS NULL
       RETURNING *
     `;
 

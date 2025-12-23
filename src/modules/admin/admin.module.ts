@@ -4,6 +4,7 @@ import { QueueModule } from '../queue/queue.module';
 import { OrdersModule } from '../orders/orders.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
+import { StorageModule } from '../storage/storage.module';
 import { AdminRepository } from './infrastructure/repositories/admin.repository';
 import { AdminDashboardService } from './application/admin-dashboard.service';
 import { AdminOrdersService } from './application/admin-orders.service';
@@ -26,6 +27,7 @@ import { AdminGuard } from './interfaces/guards/admin.guard';
     forwardRef(() => OrdersModule),
     forwardRef(() => PaymentsModule),
     forwardRef(() => WebhooksModule),
+    StorageModule,
   ],
   controllers: [
     AdminDashboardController,

@@ -16,6 +16,7 @@ import { AdminGuard } from '../guards/admin.guard';
 import { OrderQueryDto } from '../dto/order-query.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
 import { UpdatePaymentStatusDto } from '../dto/update-payment-status.dto';
+import { BulkDownloadDto } from '../dto/bulk-download.dto';
 
 @Controller('admin/orders')
 @UseGuards(AuthGuard, AdminGuard)
@@ -40,6 +41,32 @@ export class AdminOrdersController {
   @Get(':id')
   async getOrder(@Param('id') id: string) {
     return this.adminOrdersService.getOrder(id);
+  }
+
+  @Get(':id/download')
+  async downloadOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.adminOrdersService.getComposedImageDownload(
+      id,
+      user.id,
+      req.ip || null,
+    );
+  }
+
+  @Post('bulk-download')
+  async bulkDownloadOrders(
+    @Body() dto: BulkDownloadDto,
+    @CurrentUser() user: User,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.adminOrdersService.generateBulkDownloadZip(
+      dto.orderIds,
+      user.id,
+      req.ip || null,
+    );
   }
 
   @Patch(':id/status')
@@ -102,5 +129,14 @@ export class AdminOrdersController {
       user.id,
       req.ip || null,
     );
+  }
+
+  @Patch(':id/mark-printed')
+  async markOrderPrinted(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Req() req: FastifyRequest,
+  ) {
+    return this.adminOrdersService.markAsPrinted(id, user.id, req.ip || null);
   }
 }
