@@ -111,33 +111,47 @@ export class GenerationProcessor extends WorkerHost {
         const gen = images[i];
         const mimeType = gen.mimeType || 'image/png';
         const originalBuffer = Buffer.from(gen.data, 'base64');
+        // Normalize to 1:1 before storing or watermarking.
+        const { buffer: normalizedBuffer, mimeType: outputMimeType } =
+          await this.watermarkService.normalizeToSquare(originalBuffer, mimeType);
 
         // Store unwatermarked version (for paid orders)
         const unwatermarkedKey = `generated/${genJob.id}/variation-${i + 1}-full.png`;
-        await this.storageService.uploadObject(unwatermarkedKey, originalBuffer, mimeType);
+        await this.storageService.uploadObject(
+          unwatermarkedKey,
+          normalizedBuffer,
+          outputMimeType,
+        );
 
         await this.generationRepository.insertGeneratedImage({
           jobId,
           variationIndex: i + 1,
           storageKey: unwatermarkedKey,
-          mimeType,
-          fileSize: originalBuffer.length,
+          mimeType: outputMimeType,
+          fileSize: normalizedBuffer.length,
           expiresAt,
           isPermanent: false,
           isPreview: false,
         });
 
         // Apply watermark for preview version
-        const watermarkedBuffer = await this.watermarkService.applyPreviewWatermark(originalBuffer);
+        const watermarkedBuffer = await this.watermarkService.applyPreviewWatermark(
+          normalizedBuffer,
+          outputMimeType,
+        );
 
         const previewKey = `generated/${genJob.id}/variation-${i + 1}-preview.png`;
-        await this.storageService.uploadObject(previewKey, watermarkedBuffer, mimeType);
+        await this.storageService.uploadObject(
+          previewKey,
+          watermarkedBuffer,
+          outputMimeType,
+        );
 
         await this.generationRepository.insertGeneratedImage({
           jobId,
           variationIndex: i + 1,
           storageKey: previewKey,
-          mimeType,
+          mimeType: outputMimeType,
           fileSize: watermarkedBuffer.length,
           expiresAt,
           isPermanent: false,
