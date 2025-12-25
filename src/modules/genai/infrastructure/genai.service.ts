@@ -7,15 +7,20 @@ import {
 } from '../../rate-limiter/application/rate-limiter.service';
 import { DEFAULT_TOKEN_ESTIMATE } from '../../rate-limiter/domain/rate-limiter.constants';
 
-const PROMPT = `Transform this photo into a professional ID/passport photo:
+const PROMPT = `Transform this casual photo into a formal ID/passport photo suitable for official documents.
 
-1. BACKGROUND: Pure white background (#FFFFFF)
-2. LIGHTING: Even, professional studio lighting
-3. COMPOSITION: Center face, proper head-to-frame ratio
-4. EXPRESSION: Neutral, natural look
-5. QUALITY: Sharp, high-resolution for official documents
+REQUIREMENTS:
+1. BACKGROUND: Replace with pure white background (#FFFFFF), clean and uniform
+2. ATTIRE: If the subject is wearing casual clothing, transform it into formal business attire (collared shirt/blouse or suit). Keep the transformation natural and matching the person's appearance
+3. LIGHTING: Apply even, professional studio lighting - soft, diffused front light that eliminates harsh shadows
+4. COMPOSITION: Center the face with proper head-to-frame ratio (head should occupy 70-80% of vertical space), slight crop below shoulders
+5. EXPRESSION: Maintain a neutral, natural expression with a slight professional demeanor
+6. SKIN & FEATURES: Keep natural skin tone and all facial features authentic - no beautification or smoothing
+7. HAIR: Keep hair neat and tidy as-is, only minor cleanup if needed
+8. QUALITY: Output must be sharp, high-resolution, and print-ready for official ID document
+9. ASPECT RATIO: 1:1 square format
 
-Preserve natural appearance and features.`;
+IMPORTANT: The result must look like a professionally taken studio photo, not an edited selfie. Preserve the person's natural appearance while making them look professional and presentable for formal ID use.`;
 
 export type GeneratedImageResult = {
   mimeType: string;
@@ -78,6 +83,12 @@ export class GenAIService {
     imageData: string,
     modelName: string,
   ): Promise<{ result: GeneratedImageResult; tokenCount: number }> {
+    // gemini-3-pro supports both aspectRatio and imageSize
+    // gemini-2.5-flash only supports aspectRatio
+    const isPrimaryModel = modelName.includes('gemini-3-pro-image-preview');
+    const imageConfig = isPrimaryModel
+      ? { aspectRatio: '1:1', imageSize: '2K' }
+      : { aspectRatio: '1:1' };
     const response = await this.client.models.generateContent({
       model: modelName,
       contents: [
@@ -94,6 +105,13 @@ export class GenAIService {
           ],
         },
       ],
+      config: {
+        responseModalities: ['image', 'text'],
+        temperature: 1,
+        topP: 0.95,
+        maxOutputTokens: 32768,
+        imageConfig,
+      },
     });
 
     const inlineData = response.candidates?.[0]?.content?.parts?.find(
