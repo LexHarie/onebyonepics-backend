@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { GenerationController } from './interfaces/controllers/generation.controller';
 import { GenerationService } from './application/generation.service';
+import { GenerationQueueRecoveryService } from './application/generation-queue-recovery.service';
 import { GenerationProcessor } from './infrastructure/workers/generation.processor';
 import { GenerationRepositoryInterfaces } from './infrastructure/index.interface';
 import { ImagesModule } from '../images/images.module';
@@ -27,6 +28,7 @@ import { OptionalAuthGuard } from '../../common/guards/optional-auth.guard';
   controllers: [GenerationController],
   providers: [
     GenerationService,
+    GenerationQueueRecoveryService,
     GenerationProcessor,
     ...GenerationRepositoryInterfaces,
     OptionalAuthGuard,

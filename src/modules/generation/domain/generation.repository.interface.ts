@@ -1,4 +1,7 @@
-import type { GenerationJobRow } from './entities/generation-job.entity';
+import type {
+  GenerationJobRow,
+  GenerationJobStatus,
+} from './entities/generation-job.entity';
 import type { GeneratedImageRow } from './entities/generated-image.entity';
 import type { UploadedImageRow } from '../../images/domain/entities/image.entity';
 
@@ -16,6 +19,10 @@ export interface IGenerationRepository {
   updateJobProcessing(jobId: string, startedAt: Date): Promise<void>;
   updateJobCompleted(jobId: string, completedAt: Date): Promise<void>;
   updateJobFailed(jobId: string, errorMessage: string): Promise<void>;
+  findJobsForRecovery(params: {
+    statuses: GenerationJobStatus[];
+    createdAfter: Date;
+  }): Promise<GenerationJobRow[]>;
   findGeneratedImagesByJobId(
     jobId: string,
     isPreview: boolean,

@@ -100,6 +100,7 @@ export class GenerationService {
       'generate',
       { jobId: job.id },
       {
+        jobId: job.id,
         attempts: 3,
         backoff: {
           type: 'exponential',

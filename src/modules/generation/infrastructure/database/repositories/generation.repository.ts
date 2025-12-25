@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../../../database/infrastructure/database.service';
-import type { GenerationJobRow } from '../../../domain/entities/generation-job.entity';
+import type {
+  GenerationJobRow,
+  GenerationJobStatus,
+} from '../../../domain/entities/generation-job.entity';
 import type { GeneratedImageRow } from '../../../domain/entities/generated-image.entity';
 import type { UploadedImageRow } from '../../../../images/domain/entities/image.entity';
 import type { IGenerationRepository } from '../../../domain/generation.repository.interface';
@@ -74,6 +77,22 @@ export class GenerationRepository implements IGenerationRepository {
       UPDATE generation_jobs
       SET status = 'failed', error_message = ${errorMessage}
       WHERE id = ${jobId}
+    `;
+  }
+
+  async findJobsForRecovery(params: {
+    statuses: GenerationJobStatus[];
+    createdAfter: Date;
+  }): Promise<GenerationJobRow[]> {
+    if (params.statuses.length === 0) return [];
+
+    const statusArray = this.db.sql.array(params.statuses, 'text');
+    return this.db.sql<GenerationJobRow[]>`
+      SELECT *
+      FROM generation_jobs
+      WHERE status = ANY(${statusArray})
+        AND created_at >= ${params.createdAfter}
+      ORDER BY created_at ASC
     `;
   }
 

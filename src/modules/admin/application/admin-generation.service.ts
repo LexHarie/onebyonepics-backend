@@ -105,10 +105,16 @@ export class AdminGenerationService {
 
     await this.adminRepository.resetGenerationJob(jobId);
 
+    const existingJob = await this.generationQueue.getJob(jobId);
+    if (existingJob) {
+      await existingJob.remove();
+    }
+
     await this.generationQueue.add(
       'generate',
       { jobId },
       {
+        jobId,
         attempts: 3,
         backoff: {
           type: 'exponential',
