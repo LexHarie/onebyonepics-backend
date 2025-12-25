@@ -241,7 +241,7 @@ export class WatermarkService {
       tileHeight / 2,
     )}) rotate(-30)">
           <text x="0" y="0"
-            font-family="Arial, Helvetica, sans-serif"
+            font-family="DejaVu Sans, Arial, Helvetica, sans-serif"
             font-size="${fontSize}"
             font-weight="bold"
             fill="rgba(128, 128, 128, 0.4)"
