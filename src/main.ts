@@ -50,9 +50,25 @@ async function bootstrap() {
   const fastifyInstance = app.getHttpAdapter().getInstance();
   const auth = app.get<Auth>(BETTER_AUTH_INSTANCE_TOKEN);
   fastifyInstance.route({
-    method: ['GET', 'POST'],
+    method: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
     url: '/api/auth/*',
     async handler(request: any, reply: any) {
+      // Handle CORS preflight
+      const allowedOrigin = corsOrigin === '*' ? request.headers.origin || '*' :
+        corsOrigin.split(',').map(o => o.trim()).includes(request.headers.origin as string)
+          ? request.headers.origin
+          : corsOrigin.split(',')[0];
+
+      if (request.method === 'OPTIONS') {
+        reply
+          .header('Access-Control-Allow-Origin', allowedOrigin)
+          .header('Access-Control-Allow-Credentials', 'true')
+          .header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+          .header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+          .status(204)
+          .send();
+        return;
+      }
       try {
         const forwardedProto = request.headers['x-forwarded-proto'];
         const forwardedHost = request.headers['x-forwarded-host'];
@@ -78,6 +94,11 @@ async function bootstrap() {
         const response = await auth.handler(req);
 
         reply.status(response.status);
+
+        // Add CORS headers for auth routes (since this bypasses middleware)
+        reply.header('Access-Control-Allow-Origin', allowedOrigin);
+        reply.header('Access-Control-Allow-Credentials', 'true');
+
         response.headers.forEach((value: string, key: string) =>
           reply.header(key, value),
         );
