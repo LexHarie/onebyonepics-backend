@@ -314,18 +314,21 @@ export class GenerationService {
         const gen = images[i];
         const mimeType = gen.mimeType || 'image/png';
         let buffer: Buffer = Buffer.from(gen.data, 'base64');
+        const { buffer: normalizedBuffer, mimeType: outputMimeType } =
+          await this.watermarkService.normalizeToSquare(buffer, mimeType);
+        buffer = normalizedBuffer;
 
         // Apply watermark to preview images
-        buffer = await this.watermarkService.applyPreviewWatermark(buffer);
+        buffer = await this.watermarkService.applyPreviewWatermark(buffer, outputMimeType);
 
         const key = `generated/${job.id}/variation-${i + 1}.png`;
-        await this.storageService.uploadObject(key, buffer, mimeType);
+        await this.storageService.uploadObject(key, buffer, outputMimeType);
 
         await this.generationRepository.insertGeneratedImage({
           jobId,
           variationIndex: i + 1,
           storageKey: key,
-          mimeType,
+          mimeType: outputMimeType,
           fileSize: buffer.length,
           expiresAt,
           isPermanent: false,
