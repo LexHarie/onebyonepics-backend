@@ -1,7 +1,30 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import sharp from 'sharp';
 
 type OutputFormat = 'png' | 'jpeg';
+
+const MAX_INPUT_PIXELS = 60_000_000;
+const DEFAULT_PREVIEW_MAX_SIZE = 1024;
+const MIN_PREVIEW_MAX_SIZE = 256;
+const FULL_QUALITY = 95;
+const PREVIEW_QUALITY = 85;
+const MIN_FONT_SIZE = 24;
+const MAX_FONT_SIZE = 160;
+const TILE_WIDTH_MIN = 220;
+const TILE_WIDTH_MAX = 600;
+const TILE_HEIGHT_MIN = 180;
+const TILE_HEIGHT_MAX = 450;
+const TEXT_WIDTH_FACTOR = 0.62;
+
+const SHARP_INPUT_OPTIONS = {
+  failOn: 'none' as const,
+  sequentialRead: true,
+  limitInputPixels: MAX_INPUT_PIXELS,
+};
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(Math.max(value, min), max);
 
 // Configure sharp globally for low-memory environments
 sharp.cache({ memory: 50, files: 20, items: 100 });
@@ -16,6 +39,16 @@ type ImageInfo = {
 @Injectable()
 export class WatermarkService {
   private readonly logger = new Logger(WatermarkService.name);
+  private readonly previewMaxSize: number;
+
+  constructor(private readonly configService: ConfigService) {
+    const configured = this.configService.get<number>('images.previewMaxSize');
+    const resolved =
+      Number.isFinite(configured) && configured !== undefined
+        ? configured
+        : DEFAULT_PREVIEW_MAX_SIZE;
+    this.previewMaxSize = Math.max(MIN_PREVIEW_MAX_SIZE, Math.round(resolved));
+  }
 
   private resolveOutputFormat(
     mimeType?: string,
@@ -43,7 +76,7 @@ export class WatermarkService {
   }
 
   private async getImageInfo(imageBuffer: Buffer): Promise<ImageInfo> {
-    const metadata = await sharp(imageBuffer, { failOn: 'none' }).metadata();
+    const metadata = await sharp(imageBuffer, SHARP_INPUT_OPTIONS).metadata();
 
     if (metadata.width && metadata.height) {
       return {
@@ -53,7 +86,7 @@ export class WatermarkService {
       };
     }
 
-    const { info } = await sharp(imageBuffer, { failOn: 'none' }).toBuffer({
+    const { info } = await sharp(imageBuffer, SHARP_INPUT_OPTIONS).toBuffer({
       resolveWithObject: true,
     });
 
@@ -76,13 +109,14 @@ export class WatermarkService {
       const size = Math.min(width, height);
       const output = this.resolveOutputFormat(mimeType, format);
 
-      const pipeline = sharp(imageBuffer, { failOn: 'none' })
-        .rotate()
-        .resize(size, size, { fit: 'cover', position: 'center' });
+      const pipeline = this.createPipeline(imageBuffer).resize(size, size, {
+        fit: 'cover',
+        position: 'center',
+      });
 
       const buffer =
         output.format === 'jpeg'
-          ? await pipeline.jpeg({ quality: 95 }).toBuffer()
+          ? await pipeline.jpeg({ quality: FULL_QUALITY }).toBuffer()
           : await pipeline.png().toBuffer();
 
       return { buffer, mimeType: output.mimeType };
@@ -106,58 +140,7 @@ export class WatermarkService {
     mimeType?: string,
   ): Promise<Buffer> {
     try {
-      // No need to clone - sharp doesn't mutate the input buffer
-      const { width, height, format } = await this.getImageInfo(imageBuffer);
-      const output = this.resolveOutputFormat(mimeType, format);
-
-      // Calculate font size based on image dimensions
-      const fontSize = Math.max(Math.min(width, height) * 0.1, 36);
-      const strokeWidth = Math.max(fontSize * 0.08, 3);
-
-      // Create SVG with repeating diagonal watermark pattern
-      // Using dark semi-transparent text that's visible on white backgrounds
-      const svgWatermark = `
-        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="watermark" patternUnits="userSpaceOnUse"
-                     width="${width * 0.5}" height="${height * 0.35}"
-                     patternTransform="rotate(-30)">
-              <text x="50%" y="50%"
-                    font-family="Arial, Helvetica, sans-serif"
-                    font-size="${fontSize}"
-                    font-weight="bold"
-                    fill="rgba(128, 128, 128, 0.4)"
-                    stroke="rgba(80, 80, 80, 0.25)"
-                    stroke-width="${strokeWidth}"
-                    text-anchor="middle"
-                    dominant-baseline="middle">
-                ${text}
-              </text>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#watermark)"/>
-        </svg>
-      `;
-
-      // Composite the watermark onto the image, preserving original dimensions
-      const pipeline = sharp(imageBuffer, { failOn: 'none' })
-        .rotate()
-        .composite([
-          {
-            input: Buffer.from(svgWatermark),
-            top: 0,
-            left: 0,
-          },
-        ]);
-
-      const result =
-        output.format === 'jpeg'
-          ? await pipeline.jpeg({ quality: 95 }).toBuffer()
-          : await pipeline.png().toBuffer();
-
-      this.logger.debug(`Applied watermark "${text}" to image (${width}x${height}, format: ${format})`);
-
-      return result;
+      return await this.applyWatermarkInternal(imageBuffer, text, mimeType);
     } catch (error) {
       this.logger.error(`Failed to apply watermark: ${(error as Error).message}`);
       throw error;
@@ -175,6 +158,128 @@ export class WatermarkService {
    * Apply both preview and brand watermark
    */
   async applyPreviewWatermark(imageBuffer: Buffer, mimeType?: string): Promise<Buffer> {
-    return this.applyWatermark(imageBuffer, 'PREVIEW', mimeType);
+    try {
+      return await this.applyWatermarkInternal(imageBuffer, 'PREVIEW', mimeType, {
+        maxSize: this.previewMaxSize,
+        quality: PREVIEW_QUALITY,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to apply preview watermark: ${(error as Error).message}`,
+      );
+      throw error;
+    }
+  }
+
+  private createPipeline(imageBuffer: Buffer) {
+    return sharp(imageBuffer, SHARP_INPUT_OPTIONS).rotate();
+  }
+
+  private createWatermarkTile(text: string, width: number, height: number) {
+    const baseSize = Math.min(width, height);
+    const textLength = Math.max(text.trim().length, 1);
+    const baseFontSize = clamp(
+      Math.round(baseSize * 0.1),
+      MIN_FONT_SIZE,
+      MAX_FONT_SIZE,
+    );
+
+    let tileWidth = clamp(
+      Math.round(baseFontSize * textLength * TEXT_WIDTH_FACTOR + baseFontSize),
+      TILE_WIDTH_MIN,
+      TILE_WIDTH_MAX,
+    );
+    const maxFontByTile = Math.floor(
+      (tileWidth * 0.85) / (textLength * TEXT_WIDTH_FACTOR),
+    );
+    const fontSize = clamp(
+      Math.min(baseFontSize, maxFontByTile),
+      MIN_FONT_SIZE,
+      MAX_FONT_SIZE,
+    );
+    tileWidth = clamp(
+      Math.round(fontSize * textLength * TEXT_WIDTH_FACTOR + fontSize),
+      TILE_WIDTH_MIN,
+      TILE_WIDTH_MAX,
+    );
+    const tileHeight = clamp(
+      Math.round(fontSize * 2.6),
+      TILE_HEIGHT_MIN,
+      TILE_HEIGHT_MAX,
+    );
+    const strokeWidth = Math.max(Math.round(fontSize * 0.08), 2);
+
+    const svgWatermark = `
+      <svg width="${tileWidth}" height="${tileHeight}" xmlns="http://www.w3.org/2000/svg">
+        <g transform="translate(${Math.round(tileWidth / 2)} ${Math.round(
+      tileHeight / 2,
+    )}) rotate(-30)">
+          <text x="0" y="0"
+            font-family="Arial, Helvetica, sans-serif"
+            font-size="${fontSize}"
+            font-weight="bold"
+            fill="rgba(128, 128, 128, 0.4)"
+            stroke="rgba(80, 80, 80, 0.25)"
+            stroke-width="${strokeWidth}"
+            text-anchor="middle"
+            dominant-baseline="middle">
+            ${text}
+          </text>
+        </g>
+      </svg>
+    `;
+
+    return { svgWatermark };
+  }
+
+  private async applyWatermarkInternal(
+    imageBuffer: Buffer,
+    text: string,
+    mimeType?: string,
+    options?: { maxSize?: number; quality?: number },
+  ): Promise<Buffer> {
+    const { width, height, format } = await this.getImageInfo(imageBuffer);
+    const output = this.resolveOutputFormat(mimeType, format);
+    const maxSize = options?.maxSize;
+    const scale = maxSize ? Math.min(1, maxSize / Math.max(width, height)) : 1;
+    const targetWidth = Math.max(1, Math.round(width * scale));
+    const targetHeight = Math.max(1, Math.round(height * scale));
+
+    const { svgWatermark } = this.createWatermarkTile(
+      text,
+      targetWidth,
+      targetHeight,
+    );
+
+    const pipeline = this.createPipeline(imageBuffer);
+    if (scale < 1) {
+      pipeline.resize({
+        width: targetWidth,
+        height: targetHeight,
+        fit: 'inside',
+        withoutEnlargement: true,
+      });
+    }
+
+    pipeline.composite([
+      {
+        input: Buffer.from(svgWatermark),
+        tile: true,
+        top: 0,
+        left: 0,
+      },
+    ]);
+
+    const quality = options?.quality ?? FULL_QUALITY;
+    const result =
+      output.format === 'jpeg'
+        ? await pipeline.jpeg({ quality }).toBuffer()
+        : await pipeline.png().toBuffer();
+
+    this.logger.debug(
+      `Applied watermark "${text}" to image (${targetWidth}x${targetHeight}, format: ${format})`,
+    );
+
+    return result;
   }
 }

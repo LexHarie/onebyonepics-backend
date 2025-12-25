@@ -99,6 +99,10 @@ class EnvironmentVariables {
   @IsOptional()
   @IsNumber()
   COMPOSITION_CONCURRENCY?: number;
+
+  @IsOptional()
+  @IsNumber()
+  PREVIEW_MAX_SIZE?: number;
 }
 
 function validate(config: Record<string, unknown>) {

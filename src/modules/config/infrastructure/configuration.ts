@@ -55,9 +55,12 @@ export default () => {
       },
       // Worker concurrency (should be less than RPM / avg_requests_per_job)
       workerConcurrency: parseInt(
-        process.env.GENERATION_WORKER_CONCURRENCY || '5',
+        process.env.GENERATION_WORKER_CONCURRENCY || '2',
         10,
       ),
+    },
+    images: {
+      previewMaxSize: parseInt(process.env.PREVIEW_MAX_SIZE || '1024', 10),
     },
     composition: {
       maxConcurrency: parseInt(process.env.COMPOSITION_CONCURRENCY || '4', 10),

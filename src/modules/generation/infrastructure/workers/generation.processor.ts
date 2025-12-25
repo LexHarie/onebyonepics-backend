@@ -20,13 +20,17 @@ export interface GenerationJobData {
   jobId: string;
 }
 
+const DEFAULT_WORKER_CONCURRENCY = 2;
 const WORKER_CONCURRENCY = Math.max(
   1,
-  parseInt(process.env.GENERATION_WORKER_CONCURRENCY || '5', 10),
+  parseInt(
+    process.env.GENERATION_WORKER_CONCURRENCY || String(DEFAULT_WORKER_CONCURRENCY),
+    10,
+  ),
 );
 
 // Concurrency is configurable via GENERATION_WORKER_CONCURRENCY
-// With avg 2 API calls per job, 5 concurrent jobs = ~10 RPM (safe margin)
+// Default keeps memory pressure low on small droplets.
 @Processor(GENERATION_QUEUE, {
   concurrency: WORKER_CONCURRENCY,
 })

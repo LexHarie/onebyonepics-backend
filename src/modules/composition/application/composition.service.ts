@@ -101,9 +101,6 @@ export class CompositionService implements OnModuleInit {
           // Cache resized buffer if same image used in multiple tiles
           processedImages.set(imageIndex, resizedBuffer);
 
-          // Help GC by clearing reference to original buffer
-          // @ts-ignore
-          buffer = null;
         }
 
         compositeOps.push({
