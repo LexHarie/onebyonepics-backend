@@ -1,7 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import sharp from 'sharp';
 
 type OutputFormat = 'png' | 'jpeg';
+
+// Configure sharp globally for low-memory environments
+sharp.cache({ memory: 50, files: 20, items: 100 });
+sharp.concurrency(1);
 
 type ImageInfo = {
   width: number;
@@ -102,9 +106,8 @@ export class WatermarkService {
     mimeType?: string,
   ): Promise<Buffer> {
     try {
-      // Clone the buffer to avoid mutation issues
-      const inputBuffer = Buffer.from(imageBuffer);
-      const { width, height, format } = await this.getImageInfo(inputBuffer);
+      // No need to clone - sharp doesn't mutate the input buffer
+      const { width, height, format } = await this.getImageInfo(imageBuffer);
       const output = this.resolveOutputFormat(mimeType, format);
 
       // Calculate font size based on image dimensions
@@ -137,7 +140,7 @@ export class WatermarkService {
       `;
 
       // Composite the watermark onto the image, preserving original dimensions
-      const pipeline = sharp(inputBuffer, { failOn: 'none' })
+      const pipeline = sharp(imageBuffer, { failOn: 'none' })
         .rotate()
         .composite([
           {
