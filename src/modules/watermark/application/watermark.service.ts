@@ -9,12 +9,20 @@ const DEFAULT_PREVIEW_MAX_SIZE = 1024;
 const MIN_PREVIEW_MAX_SIZE = 256;
 const FULL_QUALITY = 95;
 const PREVIEW_QUALITY = 85;
+const BASE_FONT_SCALE = 0.1;
 const MIN_FONT_SIZE = 24;
 const MAX_FONT_SIZE = 160;
 const TILE_WIDTH_MIN = 220;
 const TILE_WIDTH_MAX = 600;
 const TILE_HEIGHT_MIN = 180;
 const TILE_HEIGHT_MAX = 450;
+const PREVIEW_FONT_SCALE = 0.18;
+const PREVIEW_MIN_FONT_SIZE = 36;
+const PREVIEW_MAX_FONT_SIZE = 220;
+const PREVIEW_TILE_WIDTH_MIN = 320;
+const PREVIEW_TILE_WIDTH_MAX = 900;
+const PREVIEW_TILE_HEIGHT_MIN = 260;
+const PREVIEW_TILE_HEIGHT_MAX = 700;
 const TEXT_WIDTH_FACTOR = 0.62;
 
 const SHARP_INPUT_OPTIONS = {
@@ -34,6 +42,18 @@ type ImageInfo = {
   width: number;
   height: number;
   format?: string;
+};
+
+type WatermarkVariant = 'default' | 'preview';
+
+type WatermarkStyle = {
+  fontScale: number;
+  minFontSize: number;
+  maxFontSize: number;
+  tileWidthMin: number;
+  tileWidthMax: number;
+  tileHeightMin: number;
+  tileHeightMax: number;
 };
 
 @Injectable()
@@ -162,6 +182,7 @@ export class WatermarkService {
       return await this.applyWatermarkInternal(imageBuffer, 'PREVIEW', mimeType, {
         maxSize: this.previewMaxSize,
         quality: PREVIEW_QUALITY,
+        variant: 'preview',
       });
     } catch (error) {
       this.logger.error(
@@ -175,37 +196,42 @@ export class WatermarkService {
     return sharp(imageBuffer, SHARP_INPUT_OPTIONS).rotate();
   }
 
-  private createWatermarkTile(text: string, width: number, height: number) {
+  private createWatermarkTile(
+    text: string,
+    width: number,
+    height: number,
+    style: WatermarkStyle,
+  ) {
     const baseSize = Math.min(width, height);
     const textLength = Math.max(text.trim().length, 1);
     const baseFontSize = clamp(
-      Math.round(baseSize * 0.1),
-      MIN_FONT_SIZE,
-      MAX_FONT_SIZE,
+      Math.round(baseSize * style.fontScale),
+      style.minFontSize,
+      style.maxFontSize,
     );
 
     let tileWidth = clamp(
       Math.round(baseFontSize * textLength * TEXT_WIDTH_FACTOR + baseFontSize),
-      TILE_WIDTH_MIN,
-      TILE_WIDTH_MAX,
+      style.tileWidthMin,
+      style.tileWidthMax,
     );
     const maxFontByTile = Math.floor(
       (tileWidth * 0.85) / (textLength * TEXT_WIDTH_FACTOR),
     );
     const fontSize = clamp(
       Math.min(baseFontSize, maxFontByTile),
-      MIN_FONT_SIZE,
-      MAX_FONT_SIZE,
+      style.minFontSize,
+      style.maxFontSize,
     );
     tileWidth = clamp(
       Math.round(fontSize * textLength * TEXT_WIDTH_FACTOR + fontSize),
-      TILE_WIDTH_MIN,
-      TILE_WIDTH_MAX,
+      style.tileWidthMin,
+      style.tileWidthMax,
     );
     const tileHeight = clamp(
       Math.round(fontSize * 2.6),
-      TILE_HEIGHT_MIN,
-      TILE_HEIGHT_MAX,
+      style.tileHeightMin,
+      style.tileHeightMax,
     );
     const strokeWidth = Math.max(Math.round(fontSize * 0.08), 2);
 
@@ -236,7 +262,7 @@ export class WatermarkService {
     imageBuffer: Buffer,
     text: string,
     mimeType?: string,
-    options?: { maxSize?: number; quality?: number },
+    options?: { maxSize?: number; quality?: number; variant?: WatermarkVariant },
   ): Promise<Buffer> {
     const { width, height, format } = await this.getImageInfo(imageBuffer);
     const output = this.resolveOutputFormat(mimeType, format);
@@ -245,10 +271,12 @@ export class WatermarkService {
     const targetWidth = Math.max(1, Math.round(width * scale));
     const targetHeight = Math.max(1, Math.round(height * scale));
 
+    const style = this.getWatermarkStyle(options?.variant);
     const { svgWatermark } = this.createWatermarkTile(
       text,
       targetWidth,
       targetHeight,
+      style,
     );
 
     const pipeline = this.createPipeline(imageBuffer);
@@ -281,5 +309,29 @@ export class WatermarkService {
     );
 
     return result;
+  }
+
+  private getWatermarkStyle(variant?: WatermarkVariant): WatermarkStyle {
+    if (variant === 'preview') {
+      return {
+        fontScale: PREVIEW_FONT_SCALE,
+        minFontSize: PREVIEW_MIN_FONT_SIZE,
+        maxFontSize: PREVIEW_MAX_FONT_SIZE,
+        tileWidthMin: PREVIEW_TILE_WIDTH_MIN,
+        tileWidthMax: PREVIEW_TILE_WIDTH_MAX,
+        tileHeightMin: PREVIEW_TILE_HEIGHT_MIN,
+        tileHeightMax: PREVIEW_TILE_HEIGHT_MAX,
+      };
+    }
+
+    return {
+      fontScale: BASE_FONT_SCALE,
+      minFontSize: MIN_FONT_SIZE,
+      maxFontSize: MAX_FONT_SIZE,
+      tileWidthMin: TILE_WIDTH_MIN,
+      tileWidthMax: TILE_WIDTH_MAX,
+      tileHeightMin: TILE_HEIGHT_MIN,
+      tileHeightMax: TILE_HEIGHT_MAX,
+    };
   }
 }
