@@ -74,7 +74,7 @@ export class CompositionService implements OnModuleInit {
     // Process images sequentially to minimize memory usage
     // Instead of loading all images into memory, process one at a time
     const compositeOps: sharp.OverlayOptions[] = [];
-    const processedImages = new Map<number, Buffer>();
+    const processedImages = new Map<string, Buffer>();
 
     for (const pos of positions) {
       const imageIndex = params.tileAssignments[pos.index];
@@ -85,7 +85,8 @@ export class CompositionService implements OnModuleInit {
 
       try {
         // Check if we already processed this image index
-        let resizedBuffer = processedImages.get(imageIndex);
+        const cacheKey = `${imageIndex}-${pos.width}x${pos.height}`;
+        let resizedBuffer = processedImages.get(cacheKey);
 
         if (!resizedBuffer) {
           const key = params.imageKeys[imageIndex];
@@ -99,7 +100,7 @@ export class CompositionService implements OnModuleInit {
             .toBuffer();
 
           // Cache resized buffer if same image used in multiple tiles
-          processedImages.set(imageIndex, resizedBuffer);
+          processedImages.set(cacheKey, resizedBuffer);
 
         }
 
