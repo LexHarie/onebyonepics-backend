@@ -46,10 +46,28 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
+  // Safety net: Ensure CORS headers are always present on every response
+  const fastify = app.getHttpAdapter().getInstance();
+  fastify.addHook('onSend', (request: any, reply: any, payload: any, done: any) => {
+    // Only add if not already set (don't override @fastify/cors)
+    if (!reply.hasHeader('access-control-allow-origin')) {
+      const origin = request.headers.origin;
+      if (corsOrigin === '*') {
+        reply.header('Access-Control-Allow-Origin', origin || '*');
+      } else {
+        const allowedOrigins = corsOrigin.split(',').map((o: string) => o.trim());
+        if (origin && allowedOrigins.includes(origin)) {
+          reply.header('Access-Control-Allow-Origin', origin);
+        }
+      }
+      reply.header('Access-Control-Allow-Credentials', 'true');
+    }
+    done();
+  });
+
   // Register Better Auth routes manually for Fastify
-  const fastifyInstance = app.getHttpAdapter().getInstance();
   const auth = app.get<Auth>(BETTER_AUTH_INSTANCE_TOKEN);
-  fastifyInstance.route({
+  fastify.route({
     method: ['GET', 'POST', 'OPTIONS', 'PUT', 'PATCH', 'DELETE'],
     url: '/api/auth/*',
     async handler(request: any, reply: any) {
@@ -112,6 +130,9 @@ async function bootstrap() {
           method: request.method,
           body: request.body,
         });
+        // Ensure CORS headers on error responses
+        reply.header('Access-Control-Allow-Origin', allowedOrigin);
+        reply.header('Access-Control-Allow-Credentials', 'true');
         reply.status(500).send({
           error: 'Authentication error',
           message: error instanceof Error ? error.message : 'Unknown error',
