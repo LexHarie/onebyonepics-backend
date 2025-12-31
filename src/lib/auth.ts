@@ -1,14 +1,36 @@
 import { betterAuth } from 'better-auth';
 import { admin } from 'better-auth/plugins';
 import type { Pool } from 'pg';
+import { AppLogger, getLogLevel } from './logger';
 
 // BetterAuth instance configuration
 // This is the central auth configuration used by the NestJS module
-export const createAuth = (pool: Pool) =>
+const authLogger = new AppLogger('BetterAuth');
+
+export const createAuth = (
+  pool: Pool,
+  basePath = '/api/auth',
+  baseURL?: string,
+) =>
   betterAuth({
-    basePath: '/api/auth',
+    basePath,
+    baseURL,
     secret: process.env.BETTER_AUTH_SECRET || process.env.JWT_SECRET,
     database: pool,
+    logger: {
+      level: getLogLevel(),
+      log: (level, message, ...args) => {
+        if (level === 'error') {
+          authLogger.error(message, ...args);
+        } else if (level === 'warn') {
+          authLogger.warn(message, ...args);
+        } else if (level === 'debug') {
+          authLogger.debug(message, ...args);
+        } else {
+          authLogger.log(message, ...args);
+        }
+      },
+    },
     socialProviders: {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID!,

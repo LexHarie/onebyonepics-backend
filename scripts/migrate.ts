@@ -4,6 +4,7 @@ import {
   runMigrations,
   getMigrationStatus,
 } from '../src/modules/database/infrastructure/migrations';
+import { getDatabaseSslConfig } from '../src/lib/database';
 
 const usage = `
 Database Migration CLI
@@ -39,8 +40,10 @@ async function main() {
     process.exit(1);
   }
 
+  const sslConfig = getDatabaseSslConfig(databaseUrl);
   const sql = new SQL({
     url: databaseUrl,
+    tls: sslConfig,
     max: 5,
     idleTimeout: 30,
     connectionTimeout: 30,

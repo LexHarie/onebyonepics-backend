@@ -1,32 +1,11 @@
-FROM oven/bun:latest AS builder
+FROM oven/bun:1
 WORKDIR /app
 
-# Install deps and compile the TypeScript sources for a reproducible bundle
-COPY package.json bun.lock bunfig.toml tsconfig.json ./
-COPY src ./src
-COPY scripts ./scripts
+COPY package.json bun.lock bunfig.toml ./
 RUN bun install --frozen-lockfile
+
+COPY . .
 RUN bun run build
 
-FROM oven/bun:latest AS runtime
-WORKDIR /app
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core \
-  && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/bun.lock ./bun.lock
-COPY --from=builder /app/bunfig.toml ./bunfig.toml
-# Scripts and src needed for migrations (scripts import from src/database/migrations)
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/src ./src
-
-RUN bun install --production --frozen-lockfile
-
-ENV NODE_ENV=production
-ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-EXPOSE 3000
-
-CMD ["node", "dist/main.js"]
+EXPOSE 3001
+CMD ["bun", "run", "src/index.ts"]

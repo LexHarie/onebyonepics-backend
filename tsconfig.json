@@ -11,12 +11,27 @@
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
     "sourceMap": true,
+    "declaration": true,
     "outDir": "dist",
     "resolveJsonModule": true,
-    "types": ["node"],
+    "types": ["node", "bun"],
     "ignoreDeprecations": "5.0",
     "skipLibCheck": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/main.ts",
+    "src/app.module.ts",
+    "src/common/filters",
+    "src/common/guards",
+    "src/modules/redis",
+    "src/modules/queue",
+    "src/**/application",
+    "src/**/interfaces",
+    "src/**/infrastructure",
+    "src/**/dto",
+    "src/**/*.module.ts"
+  ]
 }

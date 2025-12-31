@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "no-unused-vars": "warn",
+    "eqeqeq": "error",
+    "prefer-const": "warn"
+  },
+  "plugins": ["typescript"],
+  "ignore": ["node_modules", "dist"]
+}

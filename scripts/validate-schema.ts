@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { SQL } from 'bun';
 import { validateSchema } from '../src/modules/database/infrastructure/schema-validator';
+import { getDatabaseSslConfig } from '../src/lib/database';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -9,7 +10,8 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
-const sql = new SQL(databaseUrl);
+const sslConfig = getDatabaseSslConfig(databaseUrl);
+const sql = new SQL({ url: databaseUrl, tls: sslConfig });
 
 console.log('Validating database schema against migrations...\n');
 

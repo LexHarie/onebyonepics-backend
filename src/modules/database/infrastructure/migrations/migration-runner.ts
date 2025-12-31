@@ -1,5 +1,4 @@
 import type { SQL } from 'bun';
-import type { Migration } from './migration.interface';
 import { migrations } from './index';
 
 interface AppliedMigration {

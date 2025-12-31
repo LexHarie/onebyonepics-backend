@@ -5,6 +5,10 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 import { Pool } from 'pg';
 import { hashPassword } from 'better-auth/crypto';
 import { createAuth } from '../src/lib/auth';
+import {
+  getDatabaseConnectionString,
+  getDatabaseSslConfig,
+} from '../src/lib/database';
 
 const databaseUrl = process.env.DATABASE_URL;
 const adminEmail = process.env.ADMIN_EMAIL;
@@ -24,7 +28,8 @@ if (!adminEmail || !adminPassword) {
 const normalizedEmail = adminEmail.trim().toLowerCase();
 
 const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString: getDatabaseConnectionString(databaseUrl),
+  ssl: getDatabaseSslConfig(databaseUrl),
 });
 
 try {
