@@ -20,6 +20,7 @@ jobs:
       IMAGE_TAR: onebyonepics-image.tar
       DEPLOY_PATH: ${{ secrets.DO_DEPLOY_PATH || '/tmp/onebyonepics-deploy' }}
       # App config
+      NODE_ENV: ${{ secrets.NODE_ENV || 'production' }}
       PORT: ${{ secrets.PORT || '3000' }}
       API_PREFIX: ${{ secrets.API_PREFIX || 'api' }}
       FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'https://onebyonepics.com' }}
@@ -86,6 +87,7 @@ jobs:
       - name: Create env file
         run: |
           cat <<EOF > deploy.env
+          NODE_ENV=${NODE_ENV}
           PORT=${PORT}
           API_PREFIX=${API_PREFIX}
           FRONTEND_URL=${FRONTEND_URL}
