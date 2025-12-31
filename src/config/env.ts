@@ -71,12 +71,27 @@ const toInt = (value: string | undefined, fallback: number) => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
+const buildBackendUrl = (frontend: string, isProd: boolean) => {
+  if (!isProd) {
+    return 'http://localhost:3001';
+  }
+
+  try {
+    const url = new URL(frontend);
+    const host = url.host.replace(/^www\./, '');
+    const backendHost = host.startsWith('api.') ? host : `api.${host}`;
+    return `${url.protocol}//${backendHost}`;
+  } catch {
+    return 'https://api.onebyonepics.com';
+  }
+};
+
 const isProduction = env.NODE_ENV === 'production';
 const defaultFrontendUrl = isProduction
   ? 'https://onebyonepics.com'
   : 'http://localhost:5173';
 const frontendUrl = env.FRONTEND_URL || defaultFrontendUrl;
-const defaultBackendUrl = isProduction ? frontendUrl : 'http://localhost:3001';
+const defaultBackendUrl = buildBackendUrl(frontendUrl, isProduction);
 const primaryModel =
   env.GOOGLE_GENAI_PRIMARY_MODEL || 'gemini-3-pro-image-preview';
 const fallbackModel = env.GOOGLE_GENAI_FALLBACK_MODEL || 'gemini-2.5-flash-image';
