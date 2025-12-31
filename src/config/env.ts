@@ -76,6 +76,7 @@ const defaultFrontendUrl = isProduction
   ? 'https://onebyonepics.com'
   : 'http://localhost:5173';
 const frontendUrl = env.FRONTEND_URL || defaultFrontendUrl;
+const defaultBackendUrl = isProduction ? frontendUrl : 'http://localhost:3001';
 const primaryModel =
   env.GOOGLE_GENAI_PRIMARY_MODEL || 'gemini-3-pro-image-preview';
 const fallbackModel = env.GOOGLE_GENAI_FALLBACK_MODEL || 'gemini-2.5-flash-image';
@@ -94,7 +95,7 @@ export const config = {
     port: toInt(env.PORT, 3001),
     apiPrefix: env.API_PREFIX || 'api',
     frontendUrl,
-    backendUrl: env.BACKEND_URL || 'http://localhost:3001',
+    backendUrl: env.BACKEND_URL || defaultBackendUrl,
   },
   database: {
     url: env.DATABASE_URL,
