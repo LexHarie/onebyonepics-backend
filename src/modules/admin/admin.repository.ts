@@ -36,7 +36,8 @@ export interface AdminAuditLogRow {
 export interface AdminWebhookRow {
   id: string;
   event_type: string;
-  maya_payment_id: string | null;
+  paymongo_payment_id: string | null;
+  payment_provider: string | null;
   order_number: string | null;
   payment_status: string | null;
   fund_source_type: string | null;
@@ -219,7 +220,7 @@ export class AdminRepository {
   async updatePaymentStatus(params: {
     orderId: string;
     status: PaymentStatus;
-    mayaPaymentId: string | null;
+    paymongoPaymentId: string | null;
     paidAt: Date | null;
     orderStatus: OrderStatus;
     updatedAt: Date;
@@ -228,7 +229,8 @@ export class AdminRepository {
       UPDATE orders
       SET
         payment_status = ${params.status},
-        maya_payment_id = ${params.mayaPaymentId},
+        paymongo_payment_id = ${params.paymongoPaymentId},
+        payment_provider = 'paymongo',
         paid_at = ${params.paidAt},
         order_status = ${params.orderStatus},
         updated_at = ${params.updatedAt}
@@ -575,7 +577,8 @@ export class AdminRepository {
       SELECT
         id,
         event_type,
-        maya_payment_id,
+        paymongo_payment_id,
+        payment_provider,
         order_number,
         payment_status,
         fund_source_type,
