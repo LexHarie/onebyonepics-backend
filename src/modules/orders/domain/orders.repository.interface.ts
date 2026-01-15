@@ -50,8 +50,8 @@ export interface IOrdersRepository {
     orderNumber: string,
     customerEmail: string,
   ): Promise<OrderRow | null>;
-  findByMayaCheckoutId(checkoutId: string): Promise<OrderRow | null>;
-  updateMayaCheckoutId(
+  findByPayMongoCheckoutId(checkoutId: string): Promise<OrderRow | null>;
+  updatePayMongoCheckoutId(
     orderId: string,
     checkoutId: string,
     updatedAt: Date,
@@ -59,7 +59,7 @@ export interface IOrdersRepository {
   updatePaymentStatus(params: {
     orderId: string;
     status: PaymentStatus;
-    mayaPaymentId: string | null;
+    paymongoPaymentId: string | null;
     paidAt: Date | null;
     orderStatus: OrderStatus;
     updatedAt: Date;
