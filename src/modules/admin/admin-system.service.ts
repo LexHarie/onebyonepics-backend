@@ -29,7 +29,8 @@ export class AdminSystemService {
     return rows.map((row) => ({
       id: row.id,
       eventType: row.event_type,
-      mayaPaymentId: row.maya_payment_id,
+      paymongoPaymentId: row.paymongo_payment_id,
+      paymentProvider: row.payment_provider,
       orderNumber: row.order_number,
       paymentStatus: row.payment_status,
       fundSourceType: row.fund_source_type,
