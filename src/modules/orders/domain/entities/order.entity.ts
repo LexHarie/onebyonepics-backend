@@ -1,6 +1,7 @@
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 export type DeliveryZone = 'cebu-city' | 'outside-cebu' | 'digital-only';
+export type PaymentProvider = 'paymongo';
 
 import type { OrderItem } from './order-item.entity';
 
@@ -68,9 +69,10 @@ export interface Order {
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
 
-  // Maya payment
-  mayaCheckoutId?: string | null;
-  mayaPaymentId?: string | null;
+  // Payment provider
+  paymentProvider: PaymentProvider;
+  paymongoCheckoutId?: string | null;
+  paymongoPaymentId?: string | null;
 
   // Digital delivery
   composedImageKey?: string | null;
@@ -115,8 +117,9 @@ export interface OrderRow {
   item_count: number;
   payment_status: string;
   order_status: string;
-  maya_checkout_id: string | null;
-  maya_payment_id: string | null;
+  payment_provider: string | null;
+  paymongo_checkout_id: string | null;
+  paymongo_payment_id: string | null;
   composed_image_key: string | null;
   download_count: number;
   max_downloads: number;
@@ -156,8 +159,9 @@ export function rowToOrder(row: OrderRow): Order {
     totalAmount: row.total_amount,
     paymentStatus: row.payment_status as PaymentStatus,
     orderStatus: row.order_status as OrderStatus,
-    mayaCheckoutId: row.maya_checkout_id,
-    mayaPaymentId: row.maya_payment_id,
+    paymentProvider: (row.payment_provider as PaymentProvider) ?? 'paymongo',
+    paymongoCheckoutId: row.paymongo_checkout_id,
+    paymongoPaymentId: row.paymongo_payment_id,
     composedImageKey: row.composed_image_key,
     downloadCount: row.download_count,
     maxDownloads: row.max_downloads,
