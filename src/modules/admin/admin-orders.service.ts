@@ -12,7 +12,7 @@ import { rowToGenerationJob } from '../generation/domain/entities/generation-job
 import { httpError } from '../../lib/http-error';
 import { AppLogger } from '../../lib/logger';
 import type { AdminRepository } from './admin.repository';
-import type { MayaService } from '../payments/maya.service';
+import type { PayMongoService } from '../payments/paymongo.service';
 import type { OrdersService } from '../orders/orders.service';
 import type { WebhookEventsService } from '../webhooks/webhook-events.service';
 import type { StorageService } from '../storage/storage.service';
@@ -24,7 +24,7 @@ export class AdminOrdersService {
   private readonly logger = new AppLogger('AdminOrdersService');
   constructor(
     private readonly adminRepository: AdminRepository,
-    private readonly mayaService: MayaService,
+    private readonly paymongoService: PayMongoService,
     private readonly ordersService: OrdersService,
     private readonly webhookEventsService: WebhookEventsService,
     private readonly storageService: StorageService,
@@ -158,7 +158,7 @@ export class AdminOrdersService {
   async updatePaymentStatus(
     orderId: string,
     status: PaymentStatus,
-    mayaPaymentId: string | null,
+    paymongoPaymentId: string | null,
     adminUserId: string,
     ipAddress: string | null,
   ) {
@@ -173,7 +173,7 @@ export class AdminOrdersService {
     const updated = await this.adminRepository.updatePaymentStatus({
       orderId,
       status,
-      mayaPaymentId,
+      paymongoPaymentId,
       paidAt,
       orderStatus,
       updatedAt: new Date(),
@@ -191,7 +191,7 @@ export class AdminOrdersService {
       metadata: {
         from: existing.payment_status,
         to: status,
-        mayaPaymentId,
+        paymongoPaymentId,
       },
       ipAddress,
     });
@@ -262,47 +262,41 @@ export class AdminOrdersService {
 
     const webhooks = await this.webhookEventsService.getWebhookHistory(order.orderNumber);
     const successWebhook = webhooks.find(
-      (w) => w.paymentStatus === 'PAYMENT_SUCCESS' || w.paymentStatus === 'AUTHORIZED',
+      (w) => w.paymentStatus === 'PAYMENT_SUCCESS',
     );
 
     let verified = false;
     let verificationDetails: Record<string, unknown> = {};
+    let verifiedPaymentId: string | null = null;
 
-    if (!force && order.mayaCheckoutId) {
+    if (!force && order.paymongoCheckoutId) {
       try {
-        const mayaCheckout = await this.mayaService.getCheckout(order.mayaCheckoutId);
+        const checkout = await this.paymongoService.getCheckoutSession(
+          order.paymongoCheckoutId,
+        );
 
-        if (mayaCheckout) {
-          const apiStatus = mayaCheckout.paymentStatus || (mayaCheckout as any).status;
+        if (checkout) {
+          const checkoutStatus = checkout.attributes.status;
+          const payment = checkout.attributes.payments?.[0];
+          const paymentStatus = payment?.attributes.status ?? 'pending';
+          const paymentAmount = payment?.attributes.amount ?? 0;
+          verifiedPaymentId = payment?.id ?? null;
 
-          let apiAmountPhp: number;
-          const totalAmt = mayaCheckout.totalAmount as any;
+          const statusMatch = checkoutStatus === 'paid' || paymentStatus === 'paid';
+          const amountMatch = Math.abs(paymentAmount - order.totalAmount) <= 1;
 
-          if (totalAmt?.amount !== undefined) {
-            apiAmountPhp = Number(totalAmt.amount);
-          } else if (totalAmt?.value !== undefined) {
-            apiAmountPhp = Number(totalAmt.value);
-          } else if ((mayaCheckout as any).amount !== undefined) {
-            apiAmountPhp = Number((mayaCheckout as any).amount);
-          } else {
-            apiAmountPhp = 0;
-          }
-          const apiAmount = Math.round(apiAmountPhp * 100);
-
-          const successStatuses = ['PAYMENT_SUCCESS', 'AUTHORIZED'];
-
-          verified =
-            successStatuses.includes(apiStatus) && Math.abs(apiAmount - order.totalAmount) <= 1;
+          verified = statusMatch && amountMatch;
 
           verificationDetails = {
-            mayaStatus: apiStatus,
-            mayaAmount: apiAmount,
+            checkoutStatus,
+            paymentStatus,
+            paymentAmount,
             orderAmount: order.totalAmount,
-            statusMatch: successStatuses.includes(apiStatus),
-            amountMatch: Math.abs(apiAmount - order.totalAmount) <= 1,
+            statusMatch,
+            amountMatch,
           };
         } else {
-          verificationDetails = { error: 'Maya API returned null' };
+          verificationDetails = { error: 'PayMongo API returned null' };
         }
       } catch (error) {
         verificationDetails = { error: (error as Error).message };
@@ -324,7 +318,8 @@ export class AdminOrdersService {
     const updatedRow = await this.adminRepository.updatePaymentStatus({
       orderId,
       status: 'paid',
-      mayaPaymentId: successWebhook?.mayaPaymentId ?? null,
+      paymongoPaymentId:
+        successWebhook?.paymongoPaymentId ?? verifiedPaymentId ?? null,
       paidAt,
       orderStatus: 'processing',
       updatedAt: paidAt,
