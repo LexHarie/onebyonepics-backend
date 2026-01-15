@@ -64,7 +64,7 @@ export const adminSchema = {
   }),
   updatePaymentStatus: t.Object({
     status: paymentStatus,
-    mayaPaymentId: t.Optional(t.String()),
+    paymongoPaymentId: t.Optional(t.String()),
   }),
   bulkDownload: t.Object({
     orderIds: t.Array(t.String({ format: 'uuid' }), { minItems: 1 }),
