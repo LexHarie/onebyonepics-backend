@@ -15,14 +15,16 @@ export class WebhookEventsRepository implements IWebhookEventsRepository {
     const rows = await this.sql<WebhookEventRow[]>`
       INSERT INTO webhook_events (
         event_type,
-        maya_payment_id,
+        paymongo_payment_id,
+        payment_provider,
         order_number,
         payment_status,
         fund_source_type,
         raw_payload
       ) VALUES (
         ${params.eventType},
-        ${params.mayaPaymentId},
+        ${params.paymongoPaymentId},
+        ${params.paymentProvider},
         ${params.orderNumber},
         ${params.paymentStatus},
         ${params.fundSourceType},
@@ -42,10 +44,12 @@ export class WebhookEventsRepository implements IWebhookEventsRepository {
     return rows.map(rowToWebhookEvent);
   }
 
-  async findByMayaPaymentId(mayaPaymentId: string): Promise<WebhookEvent | null> {
+  async findByPayMongoPaymentId(
+    paymentId: string,
+  ): Promise<WebhookEvent | null> {
     const rows = await this.sql<WebhookEventRow[]>`
       SELECT * FROM webhook_events
-      WHERE maya_payment_id = ${mayaPaymentId}
+      WHERE paymongo_payment_id = ${paymentId}
       ORDER BY created_at DESC
       LIMIT 1
     `;
@@ -131,7 +135,7 @@ export class WebhookEventsRepository implements IWebhookEventsRepository {
         AND verification_attempts < ${maxAttempts}
         AND processed = TRUE
         AND created_at > NOW() - INTERVAL '24 hours'
-        AND payment_status IN ('PAYMENT_SUCCESS', 'AUTHORIZED')
+        AND payment_status IN ('PAYMENT_SUCCESS')
       ORDER BY created_at ASC
       LIMIT ${limit}
     `;
