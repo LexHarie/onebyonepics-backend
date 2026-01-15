@@ -15,9 +15,9 @@ export interface IWebhookEventsRepository {
   findByOrderNumber(orderNumber: string): Promise<WebhookEvent[]>;
 
   /**
-   * Find webhook event by Maya payment ID
+   * Find webhook event by PayMongo payment ID
    */
-  findByMayaPaymentId(mayaPaymentId: string): Promise<WebhookEvent | null>;
+  findByPayMongoPaymentId(paymentId: string): Promise<WebhookEvent | null>;
 
   /**
    * Find webhook event by ID
@@ -35,7 +35,7 @@ export interface IWebhookEventsRepository {
   findUnprocessed(limit?: number): Promise<WebhookEvent[]>;
 
   /**
-   * Mark webhook as verified with Maya API data
+   * Mark webhook as verified with provider API data
    */
   markVerified(
     id: string,
