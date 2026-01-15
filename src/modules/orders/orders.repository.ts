@@ -148,21 +148,24 @@ export class OrdersRepository implements IOrdersRepository {
     return rows[0] ?? null;
   }
 
-  async findByMayaCheckoutId(checkoutId: string): Promise<OrderRow | null> {
+  async findByPayMongoCheckoutId(checkoutId: string): Promise<OrderRow | null> {
     const rows = await this.sql<OrderRow[]>`
-      SELECT * FROM orders WHERE maya_checkout_id = ${checkoutId} LIMIT 1
+      SELECT * FROM orders WHERE paymongo_checkout_id = ${checkoutId} LIMIT 1
     `;
     return rows[0] ?? null;
   }
 
-  async updateMayaCheckoutId(
+  async updatePayMongoCheckoutId(
     orderId: string,
     checkoutId: string,
     updatedAt: Date,
   ): Promise<OrderRow | null> {
     const rows = await this.sql<OrderRow[]>`
       UPDATE orders
-      SET maya_checkout_id = ${checkoutId}, updated_at = ${updatedAt}
+      SET
+        paymongo_checkout_id = ${checkoutId},
+        payment_provider = 'paymongo',
+        updated_at = ${updatedAt}
       WHERE id = ${orderId}
       RETURNING *
     `;
@@ -172,7 +175,7 @@ export class OrdersRepository implements IOrdersRepository {
   async updatePaymentStatus(params: {
     orderId: string;
     status: PaymentStatus;
-    mayaPaymentId: string | null;
+    paymongoPaymentId: string | null;
     paidAt: Date | null;
     orderStatus: OrderStatus;
     updatedAt: Date;
@@ -181,7 +184,8 @@ export class OrdersRepository implements IOrdersRepository {
       UPDATE orders
       SET
         payment_status = ${params.status},
-        maya_payment_id = ${params.mayaPaymentId},
+        paymongo_payment_id = ${params.paymongoPaymentId},
+        payment_provider = 'paymongo',
         paid_at = ${params.paidAt},
         order_status = ${params.orderStatus},
         updated_at = ${params.updatedAt}
