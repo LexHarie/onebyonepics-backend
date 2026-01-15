@@ -303,8 +303,8 @@ export class OrdersService {
     return row ? rowToOrder(row) : null;
   }
 
-  async findByMayaCheckoutId(checkoutId: string): Promise<Order | null> {
-    const row = await this.ordersRepository.findByMayaCheckoutId(checkoutId);
+  async findByPayMongoCheckoutId(checkoutId: string): Promise<Order | null> {
+    const row = await this.ordersRepository.findByPayMongoCheckoutId(checkoutId);
     return row ? rowToOrder(row) : null;
   }
 
@@ -380,8 +380,8 @@ export class OrdersService {
     return order;
   }
 
-  async setMayaCheckoutId(orderId: string, checkoutId: string): Promise<Order> {
-    const row = await this.ordersRepository.updateMayaCheckoutId(
+  async setPayMongoCheckoutId(orderId: string, checkoutId: string): Promise<Order> {
+    const row = await this.ordersRepository.updatePayMongoCheckoutId(
       orderId,
       checkoutId,
       new Date(),
@@ -397,7 +397,7 @@ export class OrdersService {
   async updatePaymentStatus(
     orderId: string,
     status: PaymentStatus,
-    mayaPaymentId?: string,
+    paymongoPaymentId?: string,
   ): Promise<Order> {
     const now = new Date();
     const paidAt = status === 'paid' ? now : null;
@@ -406,7 +406,7 @@ export class OrdersService {
     const row = await this.ordersRepository.updatePaymentStatus({
       orderId,
       status,
-      mayaPaymentId: mayaPaymentId ?? null,
+      paymongoPaymentId: paymongoPaymentId ?? null,
       paidAt,
       orderStatus,
       updatedAt: now,
