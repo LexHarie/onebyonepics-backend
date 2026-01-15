@@ -4,7 +4,7 @@ import { getAuthSession } from '../../lib/auth-session';
 import { httpError } from '../../lib/http-error';
 import { generationService } from '../generation';
 import { ordersService } from '../orders';
-import { MayaService } from '../payments/maya.service';
+import { PayMongoService } from '../payments/paymongo.service';
 import { StorageService } from '../storage/storage.service';
 import { createWebhookEventsRepository } from '../webhooks/webhook-events.repository';
 import { WebhookEventsService } from '../webhooks/webhook-events.service';
@@ -90,17 +90,16 @@ const parseDate = (value?: string) => {
 };
 
 const adminRepository = createAdminRepository();
-const mayaService = new MayaService();
+const paymongoService = new PayMongoService();
 const webhookEventsService = new WebhookEventsService(
   createWebhookEventsRepository(),
   ordersService,
-  mayaService,
 );
 const storageService = new StorageService();
 const adminDashboardService = new AdminDashboardService(adminRepository);
 const adminOrdersService = new AdminOrdersService(
   adminRepository,
-  mayaService,
+  paymongoService,
   ordersService,
   webhookEventsService,
   storageService,
@@ -212,7 +211,7 @@ export const adminModule = new Elysia({ name: 'admin' })
       return adminOrdersService.updatePaymentStatus(
         params.id,
         status,
-        body.mayaPaymentId ?? null,
+        body.paymongoPaymentId ?? null,
         adminUser.id,
         ipAddress,
       );
