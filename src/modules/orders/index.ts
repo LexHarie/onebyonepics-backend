@@ -3,7 +3,7 @@ import { getAuthSession } from '../../lib/auth-session';
 import { OrdersService } from './orders.service';
 import { createOrdersRepository } from './orders.repository';
 import { ordersSchema } from './orders.schema';
-import { MayaService } from '../payments/maya.service';
+import { PayMongoService } from '../payments/paymongo.service';
 import { gridConfigs } from '../grid-configs/domain/data/grid-configs.data';
 import { StorageService } from '../storage/storage.service';
 import { CompositionService } from '../composition/composition.service';
@@ -20,7 +20,7 @@ export const ordersService = new OrdersService(
 
 generationService.setOrdersService(ordersService);
 
-const mayaService = new MayaService();
+const paymongoService = new PayMongoService();
 const logger = new AppLogger('OrdersController');
 
 export const ordersModule = new Elysia({ name: 'orders' })
@@ -50,7 +50,7 @@ export const ordersModule = new Elysia({ name: 'orders' })
         gridConfigName = `${orderItems.length} items`;
       }
 
-      if (!mayaService.isConfigured()) {
+      if (!paymongoService.isConfigured()) {
         return {
           orderId: order.id,
           orderNumber: order.orderNumber,
@@ -62,27 +62,26 @@ export const ordersModule = new Elysia({ name: 'orders' })
       }
 
       try {
-        const checkout = await mayaService.createCheckout({
+        const checkout = await paymongoService.createCheckoutSession({
           orderNumber: order.orderNumber,
           orderId: order.id,
           amount: order.totalAmount,
           customerName: order.customerName,
           customerEmail: order.customerEmail,
-          customerPhone: order.customerPhone,
           gridConfigName,
         });
 
-        await ordersService.setMayaCheckoutId(order.id, checkout.checkoutId);
+        await ordersService.setPayMongoCheckoutId(order.id, checkout.checkoutSessionId);
 
         return {
           orderId: order.id,
           orderNumber: order.orderNumber,
           totalAmount: order.totalAmount,
           paymentStatus: order.paymentStatus,
-          checkoutUrl: checkout.redirectUrl,
+          checkoutUrl: checkout.checkoutUrl,
         };
       } catch (error) {
-        logger.error('Maya checkout creation failed', error);
+        logger.error('PayMongo checkout creation failed', error);
         return {
           orderId: order.id,
           orderNumber: order.orderNumber,
