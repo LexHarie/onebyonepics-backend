@@ -1,5 +1,3 @@
-import type { MayaPaymentStatus, MayaFundSourceType } from './maya-webhook.types';
-
 /**
  * Verification status for webhook events
  */
@@ -11,10 +9,11 @@ export type VerificationStatus = 'pending' | 'verified' | 'failed' | 'skipped';
 export interface WebhookEvent {
   id: string;
   eventType: string;
-  mayaPaymentId: string | null;
+  paymongoPaymentId: string | null;
+  paymentProvider: string | null;
   orderNumber: string | null;
-  paymentStatus: MayaPaymentStatus | null;
-  fundSourceType: MayaFundSourceType | null;
+  paymentStatus: string | null;
+  fundSourceType: string | null;
   rawPayload: Record<string, unknown>;
   processed: boolean;
   processingError: string | null;
@@ -26,7 +25,7 @@ export interface WebhookEvent {
   verificationError: string | null;
   verificationAttemptedAt: Date | null;
   verifiedAmount: number | null;
-  verifiedPaymentStatus: MayaPaymentStatus | null;
+  verifiedPaymentStatus: string | null;
   verificationAttempts: number;
 }
 
@@ -36,7 +35,8 @@ export interface WebhookEvent {
 export interface WebhookEventRow {
   id: string;
   event_type: string;
-  maya_payment_id: string | null;
+  paymongo_payment_id: string | null;
+  payment_provider: string | null;
   order_number: string | null;
   payment_status: string | null;
   fund_source_type: string | null;
@@ -62,10 +62,11 @@ export function rowToWebhookEvent(row: WebhookEventRow): WebhookEvent {
   return {
     id: row.id,
     eventType: row.event_type,
-    mayaPaymentId: row.maya_payment_id,
+    paymongoPaymentId: row.paymongo_payment_id,
+    paymentProvider: row.payment_provider,
     orderNumber: row.order_number,
-    paymentStatus: row.payment_status as MayaPaymentStatus | null,
-    fundSourceType: row.fund_source_type as MayaFundSourceType | null,
+    paymentStatus: row.payment_status,
+    fundSourceType: row.fund_source_type,
     rawPayload: row.raw_payload,
     processed: row.processed,
     processingError: row.processing_error,
@@ -77,7 +78,7 @@ export function rowToWebhookEvent(row: WebhookEventRow): WebhookEvent {
     verificationError: row.verification_error,
     verificationAttemptedAt: row.verification_attempted_at,
     verifiedAmount: row.verified_amount,
-    verifiedPaymentStatus: row.verified_payment_status as MayaPaymentStatus | null,
+    verifiedPaymentStatus: row.verified_payment_status,
     verificationAttempts: row.verification_attempts ?? 0,
   };
 }
@@ -87,7 +88,8 @@ export function rowToWebhookEvent(row: WebhookEventRow): WebhookEvent {
  */
 export interface CreateWebhookEventParams {
   eventType: string;
-  mayaPaymentId: string;
+  paymongoPaymentId: string | null;
+  paymentProvider: string | null;
   orderNumber: string;
   paymentStatus: string | null;
   fundSourceType: string | null;
