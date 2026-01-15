@@ -34,13 +34,8 @@ const EnvSchema = t.Object(
     CORS_ORIGIN: t.Optional(t.String()),
     CLEANUP_ORIGINAL_IMAGES_HOURS: t.Optional(t.String()),
     CLEANUP_GENERATED_IMAGES_DAYS: t.Optional(t.String()),
-    MAYA_SANDBOX: t.Optional(t.String()),
-    MAYA_PUBLIC_KEY: t.Optional(t.String()),
-    MAYA_SECRET_KEY: t.Optional(t.String()),
-    MAYA_WEBHOOK_SECRET_KEY: t.Optional(t.String()),
-    MAYA_WEBHOOK_ALLOWED_IPS: t.Optional(t.String()),
-    MAYA_VERIFICATION_ENABLED: t.Optional(t.String()),
-    MAYA_VERIFICATION_MAX_ATTEMPTS: t.Optional(t.String()),
+    PAYMONGO_SECRET_KEY: t.Optional(t.String()),
+    PAYMONGO_WEBHOOK_SECRET_KEY: t.Optional(t.String()),
     REDIS_URL: t.Optional(t.String()),
     BETTER_AUTH_SECRET: t.Optional(t.String()),
     GOOGLE_CLIENT_ID: t.Optional(t.String()),
@@ -95,15 +90,6 @@ const defaultBackendUrl = buildBackendUrl(frontendUrl, isProduction);
 const primaryModel =
   env.GOOGLE_GENAI_PRIMARY_MODEL || 'gemini-3-pro-image-preview';
 const fallbackModel = env.GOOGLE_GENAI_FALLBACK_MODEL || 'gemini-2.5-flash-image';
-const mayaSandbox = env.MAYA_SANDBOX !== 'false';
-const defaultMayaWebhookIps = mayaSandbox
-  ? ['13.229.160.234', '3.1.199.75']
-  : ['18.138.50.235', '3.1.207.200'];
-const mayaWebhookAllowedIps = env.MAYA_WEBHOOK_ALLOWED_IPS
-  ? env.MAYA_WEBHOOK_ALLOWED_IPS.split(',')
-      .map((ip) => ip.trim())
-      .filter(Boolean)
-  : defaultMayaWebhookIps;
 
 export const config = {
   app: {
@@ -161,14 +147,9 @@ export const config = {
     originalImagesHours: toInt(env.CLEANUP_ORIGINAL_IMAGES_HOURS, 24),
     generatedImagesDays: toInt(env.CLEANUP_GENERATED_IMAGES_DAYS, 7),
   },
-  maya: {
-    sandbox: mayaSandbox,
-    publicKey: env.MAYA_PUBLIC_KEY,
-    secretKey: env.MAYA_SECRET_KEY,
-    webhookSecretKey: env.MAYA_WEBHOOK_SECRET_KEY,
-    webhookAllowedIps: mayaWebhookAllowedIps,
-    verificationEnabled: env.MAYA_VERIFICATION_ENABLED !== 'false',
-    verificationMaxAttempts: toInt(env.MAYA_VERIFICATION_MAX_ATTEMPTS, 5),
+  paymongo: {
+    secretKey: env.PAYMONGO_SECRET_KEY,
+    webhookSecretKey: env.PAYMONGO_WEBHOOK_SECRET_KEY,
   },
   redis: {
     url: env.REDIS_URL || 'redis://localhost:6379',
