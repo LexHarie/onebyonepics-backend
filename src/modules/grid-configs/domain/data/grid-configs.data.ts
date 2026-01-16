@@ -28,7 +28,7 @@ export const gridConfigs: GridConfig[] = [
     preview: [
       ...Array(6).fill({ cols: 1, rows: 1, size: 'passport' as const }),
     ],
-    price: 30,
+    price: 80,
   },
   {
     id: 'solo-b',
@@ -37,7 +37,7 @@ export const gridConfigs: GridConfig[] = [
     preview: [
       ...Array(6).fill({ cols: 2, rows: 2, size: '2x2' as const }),
     ],
-    price: 30,
+    price: 80,
   },
   {
     id: 'combo-c',
@@ -47,7 +47,7 @@ export const gridConfigs: GridConfig[] = [
       ...Array(4).fill({ cols: 2, rows: 2, size: '2x2' as const }),
       ...Array(8).fill({ cols: 1, rows: 1, size: '1x1' as const }),
     ],
-    price: 40,
+    price: 90,
     popular: true,
   },
   {
@@ -58,7 +58,7 @@ export const gridConfigs: GridConfig[] = [
       ...Array(2).fill({ cols: 2, rows: 2, size: '2x2' as const }),
       ...Array(16).fill({ cols: 1, rows: 1, size: '1x1' as const }),
     ],
-    price: 50,
+    price: 100,
   },
   {
     id: 'solo-c',
@@ -67,6 +67,6 @@ export const gridConfigs: GridConfig[] = [
     preview: [
       ...Array(24).fill({ cols: 1, rows: 1, size: '1x1' as const }),
     ],
-    price: 50,
+    price: 100,
   },
 ];
