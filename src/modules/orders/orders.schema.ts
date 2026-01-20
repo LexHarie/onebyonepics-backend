@@ -42,6 +42,10 @@ export const ordersSchema = {
     ),
     isDigitalOnly: t.Optional(t.Boolean()),
     sessionId: t.Optional(t.String()),
+    paymentMethod: t.Optional(t.Union([
+      t.Literal('online'),
+      t.Literal('cod'),
+    ])),
   }),
   guestLookup: t.Object({
     orderNumber: t.String(),
