@@ -37,6 +37,8 @@ export interface IOrdersRepository {
     deliveryFee: number;
     totalAmount: number;
     itemCount: number;
+    paymentMethod?: string;
+    orderStatus?: string;
   }): Promise<OrderRow>;
   insertOrderItems(
     orderId: string,
