@@ -27,6 +27,7 @@ export type CreateOrderInput = {
   city: string;
   province: string;
   postalCode: string;
+  country: string;
   deliveryZone: DeliveryZone;
   gridConfigId?: string | null;
   generationJobId?: string | null;
@@ -205,6 +206,11 @@ export class OrdersService {
       throw httpError(400, 'Cash on Delivery is not available for digital-only orders');
     }
 
+    // COD is only available for orders within the Philippines
+    if (paymentMethod === 'cod' && dto.country.toLowerCase() !== 'philippines') {
+      throw httpError(400, 'Cash on Delivery is only available for orders within the Philippines');
+    }
+
     const deliveryZone = isDigitalOnly
       ? ('digital-only' as DeliveryZone)
       : dto.deliveryZone;
@@ -268,6 +274,7 @@ export class OrdersService {
     const city = isDigitalOnly ? 'Digital' : dto.city;
     const province = isDigitalOnly ? 'Digital' : dto.province;
     const postalCode = isDigitalOnly ? '0000' : dto.postalCode;
+    const country = isDigitalOnly ? 'Philippines' : dto.country;
 
     // COD orders go directly to processing status (ready for fulfillment)
     const initialOrderStatus = paymentMethod === 'cod' ? 'processing' : 'pending';
@@ -284,6 +291,7 @@ export class OrdersService {
       city,
       province,
       postalCode,
+      country,
       deliveryZone,
       gridConfigId: legacyItem?.gridConfigId ?? null,
       generationJobId: legacyItem?.generationJobId ?? null,
