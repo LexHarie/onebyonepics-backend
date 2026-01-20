@@ -34,6 +34,19 @@ export const ordersModule = new Elysia({ name: 'orders' })
 
       const order = await ordersService.createOrder(body, user ?? undefined, body.sessionId);
 
+      // For COD orders, skip payment gateway and return success immediately
+      if (body.paymentMethod === 'cod') {
+        return {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          totalAmount: order.totalAmount,
+          paymentStatus: order.paymentStatus,
+          orderStatus: order.orderStatus,
+          paymentMethod: 'cod' as const,
+          checkoutUrl: null,
+        };
+      }
+
       const orderItems = body.items?.length
         ? body.items
         : body.gridConfigId
@@ -56,6 +69,7 @@ export const ordersModule = new Elysia({ name: 'orders' })
           orderNumber: order.orderNumber,
           totalAmount: order.totalAmount,
           paymentStatus: order.paymentStatus,
+          paymentMethod: 'online' as const,
           checkoutUrl: null,
           message: 'Payment gateway not configured. Please contact support.',
         };
@@ -78,6 +92,7 @@ export const ordersModule = new Elysia({ name: 'orders' })
           orderNumber: order.orderNumber,
           totalAmount: order.totalAmount,
           paymentStatus: order.paymentStatus,
+          paymentMethod: 'online' as const,
           checkoutUrl: checkout.checkoutUrl,
         };
       } catch (error) {
@@ -87,6 +102,7 @@ export const ordersModule = new Elysia({ name: 'orders' })
           orderNumber: order.orderNumber,
           totalAmount: order.totalAmount,
           paymentStatus: order.paymentStatus,
+          paymentMethod: 'online' as const,
           checkoutUrl: null,
           error: 'Failed to create payment session. Please try again.',
         };
@@ -165,6 +181,7 @@ export const ordersModule = new Elysia({ name: 'orders' })
         createdAt: order.createdAt,
         paidAt: order.paidAt,
         isDigitalOnly: order.isDigitalOnly,
+        paymentMethod: order.paymentMethod,
       };
     },
     {
@@ -212,6 +229,7 @@ export const ordersModule = new Elysia({ name: 'orders' })
         createdAt: order.createdAt,
         paidAt: order.paidAt,
         isDigitalOnly: order.isDigitalOnly,
+        paymentMethod: order.paymentMethod,
       };
     },
     {
@@ -259,6 +277,7 @@ export const ordersModule = new Elysia({ name: 'orders' })
         createdAt: order.createdAt,
         paidAt: order.paidAt,
         isDigitalOnly: order.isDigitalOnly,
+        paymentMethod: order.paymentMethod,
       };
     },
     {
