@@ -29,6 +29,7 @@ export interface IOrdersRepository {
     city: string;
     province: string;
     postalCode: string;
+    country: string;
     deliveryZone: string;
     gridConfigId: string | null;
     generationJobId: string | null;
