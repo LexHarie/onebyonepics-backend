@@ -11,6 +11,7 @@ import {
   type PaymentStatus,
   type OrderStatus,
   type DeliveryZone,
+  type PaymentMethod,
 } from './domain/entities/order.entity';
 import { rowToOrderItem, type OrderItemRow } from './domain/entities/order-item.entity';
 import { rowToGeneratedImage } from '../generation/domain/entities/generated-image.entity';
@@ -38,6 +39,7 @@ export type CreateOrderInput = {
   }>;
   isDigitalOnly?: boolean;
   sessionId?: string | null;
+  paymentMethod?: PaymentMethod;
 };
 
 const DELIVERY_FEES: Record<DeliveryZone, number> = {
@@ -188,6 +190,20 @@ export class OrdersService {
     const userId = user?.id ?? null;
     const effectiveSessionId = sessionId || dto.sessionId || null;
     const isDigitalOnly = Boolean(dto.isDigitalOnly);
+    const paymentMethod = dto.paymentMethod ?? 'online';
+
+    if (isDigitalOnly && dto.deliveryZone !== 'digital-only') {
+      throw httpError(400, 'Delivery zone must be digital-only for digital orders');
+    }
+
+    if (!isDigitalOnly && dto.deliveryZone === 'digital-only') {
+      throw httpError(400, 'Digital-only delivery zone requires isDigitalOnly=true');
+    }
+
+    // COD is not available for digital-only orders
+    if (paymentMethod === 'cod' && isDigitalOnly) {
+      throw httpError(400, 'Cash on Delivery is not available for digital-only orders');
+    }
 
     const deliveryZone = isDigitalOnly
       ? ('digital-only' as DeliveryZone)
@@ -253,6 +269,9 @@ export class OrdersService {
     const province = isDigitalOnly ? 'Digital' : dto.province;
     const postalCode = isDigitalOnly ? '0000' : dto.postalCode;
 
+    // COD orders go directly to processing status (ready for fulfillment)
+    const initialOrderStatus = paymentMethod === 'cod' ? 'processing' : 'pending';
+
     const row = await this.ordersRepository.insertOrder({
       orderNumber,
       userId,
@@ -273,6 +292,8 @@ export class OrdersService {
       deliveryFee,
       totalAmount,
       itemCount,
+      paymentMethod,
+      orderStatus: initialOrderStatus,
     });
 
     const itemRows = await this.ordersRepository.insertOrderItems(
