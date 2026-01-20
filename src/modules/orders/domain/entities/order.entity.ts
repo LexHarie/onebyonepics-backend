@@ -2,6 +2,7 @@ export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 export type DeliveryZone = 'cebu-city' | 'outside-cebu' | 'digital-only';
 export type PaymentProvider = 'paymongo';
+export type PaymentMethod = 'online' | 'cod';
 
 import type { OrderItem } from './order-item.entity';
 
@@ -69,7 +70,8 @@ export interface Order {
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
 
-  // Payment provider
+  // Payment
+  paymentMethod: PaymentMethod;
   paymentProvider: PaymentProvider;
   paymongoCheckoutId?: string | null;
   paymongoPaymentId?: string | null;
@@ -117,6 +119,7 @@ export interface OrderRow {
   item_count: number;
   payment_status: string;
   order_status: string;
+  payment_method: string;
   payment_provider: string | null;
   paymongo_checkout_id: string | null;
   paymongo_payment_id: string | null;
@@ -159,6 +162,7 @@ export function rowToOrder(row: OrderRow): Order {
     totalAmount: row.total_amount,
     paymentStatus: row.payment_status as PaymentStatus,
     orderStatus: row.order_status as OrderStatus,
+    paymentMethod: (row.payment_method as PaymentMethod) ?? 'online',
     paymentProvider: (row.payment_provider as PaymentProvider) ?? 'paymongo',
     paymongoCheckoutId: row.paymongo_checkout_id,
     paymongoPaymentId: row.paymongo_payment_id,
