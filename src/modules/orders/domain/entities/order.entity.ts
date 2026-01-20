@@ -52,6 +52,7 @@ export interface Order {
   city: string;
   province: string;
   postalCode: string;
+  country: string;
   deliveryZone: DeliveryZone;
 
   // Product info
@@ -109,6 +110,7 @@ export interface OrderRow {
   city: string;
   province: string;
   postal_code: string;
+  country: string;
   delivery_zone: string;
   grid_config_id: string | null;
   generation_job_id: string | null;
@@ -152,6 +154,7 @@ export function rowToOrder(row: OrderRow): Order {
     city: row.city,
     province: row.province,
     postalCode: row.postal_code,
+    country: row.country ?? 'Philippines',
     deliveryZone: row.delivery_zone as DeliveryZone,
     gridConfigId: row.grid_config_id ?? undefined,
     generationJobId: row.generation_job_id ?? undefined,
