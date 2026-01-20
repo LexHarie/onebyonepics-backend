@@ -50,6 +50,7 @@ const DELIVERY_FEES: Record<DeliveryZone, number> = {
 };
 
 const DIGITAL_ONLY_DISCOUNT = 0.7;
+const POSTAL_CODE_REGEX = /^\d{4}$/;
 
 export class OrdersService {
   private readonly logger = new AppLogger('OrdersService');
@@ -192,6 +193,16 @@ export class OrdersService {
     const effectiveSessionId = sessionId || dto.sessionId || null;
     const isDigitalOnly = Boolean(dto.isDigitalOnly);
     const paymentMethod = dto.paymentMethod ?? 'online';
+    const normalizedCountry = (dto.country ?? '').trim();
+    const normalizedCountryLower = normalizedCountry.toLowerCase();
+
+    if (!normalizedCountry) {
+      throw httpError(400, 'Country is required');
+    }
+
+    if (normalizedCountry.length > 100) {
+      throw httpError(400, 'Country must be at most 100 characters');
+    }
 
     if (isDigitalOnly && dto.deliveryZone !== 'digital-only') {
       throw httpError(400, 'Delivery zone must be digital-only for digital orders');
@@ -207,8 +218,12 @@ export class OrdersService {
     }
 
     // COD is only available for orders within the Philippines
-    if (paymentMethod === 'cod' && dto.country.toLowerCase() !== 'philippines') {
+    if (paymentMethod === 'cod' && normalizedCountryLower !== 'philippines') {
       throw httpError(400, 'Cash on Delivery is only available for orders within the Philippines');
+    }
+
+    if (!isDigitalOnly && normalizedCountryLower === 'philippines' && !POSTAL_CODE_REGEX.test(dto.postalCode)) {
+      throw httpError(400, 'Please enter a valid 4-digit postal code');
     }
 
     const deliveryZone = isDigitalOnly
@@ -274,7 +289,7 @@ export class OrdersService {
     const city = isDigitalOnly ? 'Digital' : dto.city;
     const province = isDigitalOnly ? 'Digital' : dto.province;
     const postalCode = isDigitalOnly ? '0000' : dto.postalCode;
-    const country = isDigitalOnly ? 'Philippines' : dto.country;
+    const country = isDigitalOnly ? 'Philippines' : normalizedCountry;
 
     // COD orders go directly to processing status (ready for fulfillment)
     const initialOrderStatus = paymentMethod === 'cod' ? 'processing' : 'pending';
