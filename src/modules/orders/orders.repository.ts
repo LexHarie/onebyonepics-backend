@@ -32,10 +32,15 @@ export class OrdersRepository implements IOrdersRepository {
     deliveryFee: number;
     totalAmount: number;
     itemCount: number;
+    paymentMethod?: string;
+    orderStatus?: string;
   }): Promise<OrderRow> {
     const tileAssignmentsJson = params.tileAssignments
       ? JSON.stringify(params.tileAssignments)
       : null;
+
+    const paymentMethod = params.paymentMethod ?? 'online';
+    const orderStatus = params.orderStatus ?? 'pending';
 
     const rows = await this.sql<OrderRow[]>`
       INSERT INTO orders (
@@ -44,7 +49,7 @@ export class OrdersRepository implements IOrdersRepository {
         street_address, barangay, city, province, postal_code, delivery_zone,
         grid_config_id, generation_job_id, tile_assignments,
         product_price, delivery_fee, total_amount, item_count,
-        payment_status, order_status
+        payment_status, order_status, payment_method
       )
       VALUES (
         ${params.orderNumber}, ${params.userId}, ${params.sessionId},
@@ -55,7 +60,7 @@ export class OrdersRepository implements IOrdersRepository {
         ${tileAssignmentsJson},
         ${params.productPrice}, ${params.deliveryFee}, ${params.totalAmount},
         ${params.itemCount},
-        'pending', 'pending'
+        'pending', ${orderStatus}, ${paymentMethod}
       )
       RETURNING *
     `;
