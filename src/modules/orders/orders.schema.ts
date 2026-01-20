@@ -22,6 +22,7 @@ export const ordersSchema = {
     city: t.String(),
     province: t.String(),
     postalCode: t.String(),
+    country: t.String(),
     deliveryZone: t.Union([
       t.Literal('cebu-city'),
       t.Literal('outside-cebu'),
