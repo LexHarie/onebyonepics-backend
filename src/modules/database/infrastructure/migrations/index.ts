@@ -12,6 +12,7 @@ import { migration010AddDailyStats } from './010_add_daily_stats';
 import { migration011AddOrderItems } from './011_add_order_items';
 import { migration012AddAdminWorkflowTracking } from './012_add_admin_workflow_tracking';
 import { migration013AddPaymongoSupport } from './013_add_paymongo_support';
+import { migration014AddPaymentMethod } from './014_add_payment_method';
 
 // Export all migrations in order
 // Add new migrations to this array as they are created
@@ -29,6 +30,7 @@ export const migrations: Migration[] = [
   migration011AddOrderItems,
   migration012AddAdminWorkflowTracking,
   migration013AddPaymongoSupport,
+  migration014AddPaymentMethod,
 ];
 
 export type { Migration } from './migration.interface';
