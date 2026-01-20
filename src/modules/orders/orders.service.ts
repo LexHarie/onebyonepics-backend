@@ -308,10 +308,22 @@ export class OrdersService {
       })),
     );
 
-    return {
+    const order = {
       ...rowToOrder(row),
       items: itemRows.map(rowToOrderItem),
     };
+
+    if (paymentMethod === 'cod') {
+      try {
+        await this.composeAndStoreImage(order.id);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to compose COD order ${order.orderNumber}: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    return order;
   }
 
   async findById(orderId: string): Promise<Order | null> {
