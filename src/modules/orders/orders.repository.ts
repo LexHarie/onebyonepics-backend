@@ -24,6 +24,7 @@ export class OrdersRepository implements IOrdersRepository {
     city: string;
     province: string;
     postalCode: string;
+    country: string;
     deliveryZone: string;
     gridConfigId: string | null;
     generationJobId: string | null;
@@ -46,7 +47,7 @@ export class OrdersRepository implements IOrdersRepository {
       INSERT INTO orders (
         order_number, user_id, session_id,
         customer_name, customer_email, customer_phone,
-        street_address, barangay, city, province, postal_code, delivery_zone,
+        street_address, barangay, city, province, postal_code, country, delivery_zone,
         grid_config_id, generation_job_id, tile_assignments,
         product_price, delivery_fee, total_amount, item_count,
         payment_status, order_status, payment_method
@@ -55,7 +56,7 @@ export class OrdersRepository implements IOrdersRepository {
         ${params.orderNumber}, ${params.userId}, ${params.sessionId},
         ${params.customerName}, ${params.customerEmail}, ${params.customerPhone},
         ${params.streetAddress}, ${params.barangay}, ${params.city}, ${params.province},
-        ${params.postalCode}, ${params.deliveryZone},
+        ${params.postalCode}, ${params.country}, ${params.deliveryZone},
         ${params.gridConfigId}, ${params.generationJobId},
         ${tileAssignmentsJson},
         ${params.productPrice}, ${params.deliveryFee}, ${params.totalAmount},
